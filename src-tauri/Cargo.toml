@@ -1,0 +1,24 @@
+[package]
+name = "tracedisk"
+version = "0.1.0"
+description = "Local disk snapshot and comparison utility"
+authors = ["TraceDisk"]
+edition = "2021"
+rust-version = "1.90"
+
+[lib]
+name = "tracedisk_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+futures-channel = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+walkdir = "2"
+zstd = "0.13"

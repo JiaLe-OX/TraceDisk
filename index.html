@@ -1,0 +1,4141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>磁迹 · TraceDisk</title>
+  <style>
+    /* ==========================================================================
+       1. 核心设计令牌体系 (Design Tokens) - 默认：钛金靛蓝 (Indigo Titanium)
+       ========================================================================== */
+    :root {
+      color-scheme: light;
+      /* 空间画布与多层材质表面 */
+      --canvas: #f0f2f7;
+      --canvas-glow-1: rgba(99, 102, 241, 0.045);
+      --canvas-glow-2: rgba(16, 185, 129, 0.04);
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-solid: #ffffff;
+      --surface-elevated: rgba(255, 255, 255, 0.98);
+      --surface-subtle: #f5f7fb;
+      --surface-recessed: #e8ecf4;
+      --toolbar: rgba(255, 255, 255, 0.9);
+
+      /* 文本层级 */
+      --ink: #0f131d;
+      --ink-secondary: #323846;
+      --muted: #646c7e;
+      --faint: #949db0;
+
+      /* 边框、高光与分割线 */
+      --line: rgba(15, 23, 42, 0.08);
+      --line-subtle: rgba(15, 23, 42, 0.045);
+      --line-strong: rgba(15, 23, 42, 0.14);
+      --specular: rgba(255, 255, 255, 0.9);
+
+      /* 悬浮暗色钛金导航坞 */
+      --rail: linear-gradient(180deg, #161924 0%, #0e1017 100%);
+      --rail-border: rgba(255, 255, 255, 0.1);
+      --rail-hover: rgba(255, 255, 255, 0.09);
+      --rail-ink: #8f96aa;
+      --rail-active-ink: #ffffff;
+
+      /* 品牌主色：电光靛蓝 (Electric Indigo) */
+      --mint: #818cf8;
+      --mint-deep: #4f46e5;
+      --mint-hover: #4338ca;
+      --mint-glow: rgba(79, 70, 229, 0.24);
+      --mint-soft: rgba(79, 70, 229, 0.08);
+
+      /* 增删差异语义色：翡翠绿 & 绯红玫瑰 */
+      --added: #059669;
+      --added-bright: #10b981;
+      --added-bg: rgba(16, 185, 129, 0.1);
+      --added-border: rgba(16, 185, 129, 0.26);
+      --removed: #e11d48;
+      --removed-bright: #f43f5e;
+      --removed-bg: rgba(244, 63, 94, 0.1);
+      --removed-border: rgba(244, 63, 94, 0.26);
+
+      /* 交互状态与轨道 */
+      --row-hover: rgba(79, 70, 229, 0.045);
+      --row-selected: rgba(79, 70, 229, 0.1);
+      --track: rgba(15, 23, 42, 0.07);
+      --tool-hover: rgba(79, 70, 229, 0.08);
+      --tool-border: rgba(79, 70, 229, 0.22);
+
+      /* 拟物文件夹与文档色彩 */
+      --folder-front: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+      --folder-tab: #fde68a;
+      --folder-shadow: rgba(180, 83, 9, 0.26);
+      --file-border: #94a3b8;
+
+      /* 几何圆角与物理多层阴影 */
+      --radius-xs: 6px;
+      --radius-sm: 9px;
+      --radius-md: 13px;
+      --radius-lg: 18px;
+      --radius-xl: 22px;
+      --row-height: 40px;
+
+      --shadow-xs: 0 1px 2px rgba(15, 18, 28, 0.04), inset 0 1px 0 var(--specular);
+      --shadow-sm: 0 4px 14px -2px rgba(15, 18, 28, 0.055), 0 1px 3px rgba(15, 18, 28, 0.035), inset 0 1px 0 var(--specular);
+      --shadow-md: 0 14px 34px -6px rgba(15, 18, 28, 0.12), 0 4px 12px -2px rgba(15, 18, 28, 0.06), inset 0 1px 0 var(--specular);
+      --shadow-lg: 0 28px 68px -12px rgba(10, 12, 20, 0.26), 0 0 1px rgba(10, 12, 20, 0.2), inset 0 1px 0 var(--specular);
+      --shadow: rgba(15, 18, 28, 0.06);
+
+      /* 动画缓动曲线 */
+      --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+      /* 字体栈 */
+      --font-sans: "Inter", "SF Pro Display", "Segoe UI Variable Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", system-ui, -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      font-family: var(--font-sans);
+    }
+
+    /* 默认主题深色模式：碳晶黑曜石与电光靛蓝 */
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #090b10;
+      --canvas-glow-1: rgba(99, 102, 241, 0.09);
+      --canvas-glow-2: rgba(16, 185, 129, 0.06);
+      --surface: rgba(19, 22, 31, 0.88);
+      --surface-solid: #141720;
+      --surface-elevated: rgba(26, 30, 42, 0.96);
+      --surface-subtle: #191d28;
+      --surface-recessed: #0e1017;
+      --toolbar: rgba(18, 21, 30, 0.88);
+
+      --ink: #f3f5f9;
+      --ink-secondary: #c8cfde;
+      --muted: #858ea3;
+      --faint: #545d72;
+
+      --line: rgba(255, 255, 255, 0.075);
+      --line-subtle: rgba(255, 255, 255, 0.038);
+      --line-strong: rgba(255, 255, 255, 0.14);
+      --specular: rgba(255, 255, 255, 0.07);
+
+      --rail: linear-gradient(180deg, #131620 0%, #0b0d13 100%);
+      --rail-border: rgba(255, 255, 255, 0.08);
+      --rail-hover: rgba(255, 255, 255, 0.08);
+      --rail-ink: #7f889f;
+      --rail-active-ink: #ffffff;
+
+      --mint: #818cf8;
+      --mint-deep: #6366f1;
+      --mint-hover: #818cf8;
+      --mint-glow: rgba(99, 102, 241, 0.34);
+      --mint-soft: rgba(99, 102, 241, 0.14);
+
+      --added: #34d399;
+      --added-bright: #10b981;
+      --added-bg: rgba(16, 185, 129, 0.14);
+      --added-border: rgba(52, 211, 153, 0.3);
+      --removed: #fb7185;
+      --removed-bright: #f43f5e;
+      --removed-bg: rgba(244, 63, 94, 0.14);
+      --removed-border: rgba(251, 113, 133, 0.3);
+
+      --row-hover: rgba(129, 140, 248, 0.065);
+      --row-selected: rgba(99, 102, 241, 0.16);
+      --track: rgba(255, 255, 255, 0.07);
+      --tool-hover: rgba(99, 102, 241, 0.15);
+      --tool-border: rgba(129, 140, 248, 0.3);
+
+      --shadow-xs: 0 2px 4px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--specular);
+      --shadow-sm: 0 8px 20px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--specular);
+      --shadow-md: 0 18px 42px -6px rgba(0, 0, 0, 0.6), inset 0 1px 0 var(--specular);
+      --shadow-lg: 0 32px 80px -10px rgba(0, 0, 0, 0.78), 0 0 1px rgba(255, 255, 255, 0.15), inset 0 1px 0 var(--specular);
+      --shadow: rgba(0, 0, 0, 0.4);
+    }
+
+    /* ==========================================================================
+       2. 三大扩展风格主题包 (支持浅色 & 深色双模式无缝切换)
+       ========================================================================== */
+
+    /* --------------------------------------------------------------------------
+       风格一：极地冰川 · 深海青 (Arctic Cyan)
+       -------------------------------------------------------------------------- */
+    [data-style="arctic"] {
+      --canvas: #eaf0f6;
+      --canvas-glow-1: rgba(2, 132, 199, 0.06);
+      --canvas-glow-2: rgba(13, 148, 136, 0.05);
+      --surface: rgba(255, 255, 255, 0.95);
+      --surface-solid: #ffffff;
+      --surface-elevated: #ffffff;
+      --surface-subtle: #f0f5fa;
+      --surface-recessed: #e6eef6;
+      --toolbar: rgba(244, 248, 251, 0.92);
+
+      --ink: #0a1929;
+      --ink-secondary: #243b53;
+      --muted: #52657a;
+      --faint: #829ab1;
+
+      --line: #d5e1ed;
+      --line-subtle: #e6eff7;
+      --line-strong: #b8c7d9;
+
+      --rail: linear-gradient(180deg, #0b192c 0%, #06101e 100%);
+      --rail-border: #1e3552;
+      --rail-hover: #162942;
+      --rail-ink: #7c93ab;
+      --rail-active-ink: #ffffff;
+
+      --mint: #38bdf8;
+      --mint-deep: #0284c7;
+      --mint-hover: #0369a1;
+      --mint-glow: rgba(2, 132, 199, 0.26);
+      --mint-soft: rgba(2, 132, 199, 0.09);
+
+      --added: #0d9488;
+      --added-bright: #14b8a6;
+      --added-bg: rgba(20, 184, 166, 0.12);
+      --added-border: rgba(20, 184, 166, 0.3);
+      --removed: #e11d48;
+      --removed-bright: #f43f5e;
+      --removed-bg: rgba(244, 63, 94, 0.11);
+      --removed-border: rgba(244, 63, 94, 0.28);
+
+      --row-hover: rgba(2, 132, 199, 0.05);
+      --row-selected: rgba(2, 132, 199, 0.11);
+      --track: #dce6f0;
+      --tool-hover: rgba(2, 132, 199, 0.09);
+      --tool-border: rgba(2, 132, 199, 0.26);
+
+      --folder-front: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+      --folder-tab: #bae6fd;
+      --folder-shadow: rgba(2, 132, 199, 0.25);
+      --file-border: #94a3b8;
+    }
+    [data-style="arctic"][data-theme="dark"] {
+      --canvas: #060d16;
+      --canvas-glow-1: rgba(14, 165, 233, 0.11);
+      --canvas-glow-2: rgba(20, 184, 166, 0.07);
+      --surface: rgba(12, 24, 38, 0.9);
+      --surface-solid: #0c1826;
+      --surface-elevated: rgba(17, 34, 54, 0.96);
+      --surface-subtle: #112133;
+      --surface-recessed: #08111c;
+      --toolbar: rgba(11, 22, 35, 0.9);
+
+      --ink: #f0f7ff;
+      --ink-secondary: #bfd4ea;
+      --muted: #7692b0;
+      --faint: #496380;
+
+      --line: rgba(125, 211, 252, 0.09);
+      --line-subtle: rgba(125, 211, 252, 0.045);
+      --line-strong: rgba(125, 211, 252, 0.17);
+
+      --rail: linear-gradient(180deg, #071322 0%, #040a12 100%);
+      --rail-border: rgba(56, 189, 248, 0.12);
+      --rail-hover: rgba(56, 189, 248, 0.1);
+      --rail-ink: #6f8ba8;
+      --rail-active-ink: #ffffff;
+
+      --mint: #38bdf8;
+      --mint-deep: #0284c7;
+      --mint-hover: #0ea5e9;
+      --mint-glow: rgba(14, 165, 233, 0.36);
+      --mint-soft: rgba(14, 165, 233, 0.15);
+
+      --added: #2dd4bf;
+      --added-bright: #14b8a6;
+      --added-bg: rgba(45, 212, 191, 0.14);
+      --added-border: rgba(45, 212, 191, 0.32);
+      --removed: #fb7185;
+      --removed-bright: #f43f5e;
+      --removed-bg: rgba(251, 113, 133, 0.14);
+      --removed-border: rgba(251, 113, 133, 0.3);
+
+      --row-hover: rgba(56, 189, 248, 0.07);
+      --row-selected: rgba(2, 132, 199, 0.18);
+      --track: rgba(125, 211, 252, 0.08);
+      --tool-hover: rgba(14, 165, 233, 0.15);
+      --tool-border: rgba(56, 189, 248, 0.32);
+    }
+
+    /* --------------------------------------------------------------------------
+       风格二：暖砂琥珀 · 复古工业 (Dune Amber)
+       -------------------------------------------------------------------------- */
+    [data-style="dune"] {
+      --canvas: #efece6;
+      --canvas-glow-1: rgba(234, 88, 12, 0.05);
+      --canvas-glow-2: rgba(21, 128, 61, 0.04);
+      --surface: rgba(250, 248, 245, 0.95);
+      --surface-solid: #faf8f5;
+      --surface-elevated: #faf8f5;
+      --surface-subtle: #f2efe9;
+      --surface-recessed: #e6e1d6;
+      --toolbar: rgba(245, 242, 236, 0.92);
+
+      --ink: #1c1917;
+      --ink-secondary: #44403c;
+      --muted: #78716c;
+      --faint: #a8a29e;
+
+      --line: #e2ddd3;
+      --line-subtle: #ece8df;
+      --line-strong: #c7c0b6;
+
+      --rail: linear-gradient(180deg, #1c1917 0%, #12100e 100%);
+      --rail-border: #292524;
+      --rail-hover: #292524;
+      --rail-ink: #a8a29e;
+      --rail-active-ink: #faf8f5;
+
+      --mint: #f97316;
+      --mint-deep: #ea580c;
+      --mint-hover: #c2410c;
+      --mint-glow: rgba(234, 88, 12, 0.25);
+      --mint-soft: rgba(234, 88, 12, 0.09);
+
+      --added: #15803d;
+      --added-bright: #16a34a;
+      --added-bg: rgba(22, 163, 74, 0.11);
+      --added-border: rgba(22, 163, 74, 0.28);
+      --removed: #b91c1c;
+      --removed-bright: #dc2626;
+      --removed-bg: rgba(220, 38, 38, 0.1);
+      --removed-border: rgba(220, 38, 38, 0.26);
+
+      --row-hover: rgba(234, 88, 12, 0.055);
+      --row-selected: rgba(234, 88, 12, 0.12);
+      --track: #e4dfd5;
+      --tool-hover: rgba(234, 88, 12, 0.09);
+      --tool-border: rgba(234, 88, 12, 0.26);
+
+      --folder-front: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+      --folder-tab: #fde68a;
+      --folder-shadow: rgba(180, 83, 9, 0.28);
+      --file-border: #a8a29e;
+    }
+    [data-style="dune"][data-theme="dark"] {
+      --canvas: #0f0d0b;
+      --canvas-glow-1: rgba(234, 88, 12, 0.1);
+      --canvas-glow-2: rgba(22, 163, 74, 0.06);
+      --surface: rgba(26, 22, 19, 0.92);
+      --surface-solid: #1a1613;
+      --surface-elevated: rgba(36, 30, 26, 0.96);
+      --surface-subtle: #221d19;
+      --surface-recessed: #120f0d;
+      --toolbar: rgba(24, 20, 17, 0.9);
+
+      --ink: #faf5ef;
+      --ink-secondary: #d6cdc2;
+      --muted: #968c80;
+      --faint: #635b52;
+
+      --line: rgba(251, 146, 60, 0.09);
+      --line-subtle: rgba(255, 255, 255, 0.04);
+      --line-strong: rgba(251, 146, 60, 0.18);
+
+      --rail: linear-gradient(180deg, #161310 0%, #0b0908 100%);
+      --rail-border: rgba(251, 146, 60, 0.12);
+      --rail-hover: rgba(251, 146, 60, 0.1);
+      --rail-ink: #8f8478;
+      --rail-active-ink: #fffbeb;
+
+      --mint: #fb923c;
+      --mint-deep: #ea580c;
+      --mint-hover: #f97316;
+      --mint-glow: rgba(234, 88, 12, 0.36);
+      --mint-soft: rgba(234, 88, 12, 0.15);
+
+      --added: #4ade80;
+      --added-bright: #22c55e;
+      --added-bg: rgba(74, 222, 128, 0.13);
+      --added-border: rgba(74, 222, 128, 0.3);
+      --removed: #f87171;
+      --removed-bright: #ef4444;
+      --removed-bg: rgba(248, 113, 113, 0.14);
+      --removed-border: rgba(248, 113, 113, 0.3);
+
+      --row-hover: rgba(251, 146, 60, 0.07);
+      --row-selected: rgba(234, 88, 12, 0.18);
+      --track: rgba(255, 255, 255, 0.07);
+      --tool-hover: rgba(234, 88, 12, 0.16);
+      --tool-border: rgba(251, 146, 60, 0.32);
+    }
+
+    /* --------------------------------------------------------------------------
+       风格三：赛博黑曜 · 霓虹紫翠 (Cyber Matrix)
+       -------------------------------------------------------------------------- */
+    [data-style="cyber"] {
+      --canvas: #f2eef9;
+      --canvas-glow-1: rgba(147, 51, 234, 0.07);
+      --canvas-glow-2: rgba(16, 185, 129, 0.05);
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-solid: #ffffff;
+      --surface-elevated: #ffffff;
+      --surface-subtle: #f7f4fc;
+      --surface-recessed: #ebe5f5;
+      --toolbar: rgba(250, 248, 254, 0.92);
+
+      --ink: #140d26;
+      --ink-secondary: #372954;
+      --muted: #6c5e8c;
+      --faint: #9c8fb8;
+
+      --line: rgba(109, 40, 217, 0.1);
+      --line-subtle: rgba(109, 40, 217, 0.05);
+      --line-strong: rgba(109, 40, 217, 0.18);
+
+      --rail: linear-gradient(180deg, #130d24 0%, #090514 100%);
+      --rail-border: rgba(192, 132, 252, 0.16);
+      --rail-hover: rgba(192, 132, 252, 0.12);
+      --rail-ink: #c4b5fd;
+      --rail-active-ink: #ffffff;
+
+      --mint: #c084fc;
+      --mint-deep: #9333ea;
+      --mint-hover: #7e22ce;
+      --mint-glow: rgba(147, 51, 234, 0.28);
+      --mint-soft: rgba(147, 51, 234, 0.1);
+
+      --added: #059669;
+      --added-bright: #10b981;
+      --added-bg: rgba(16, 185, 129, 0.11);
+      --added-border: rgba(16, 185, 129, 0.28);
+      --removed: #e11d48;
+      --removed-bright: #f43f5e;
+      --removed-bg: rgba(244, 63, 94, 0.11);
+      --removed-border: rgba(244, 63, 94, 0.28);
+
+      --row-hover: rgba(147, 51, 234, 0.05);
+      --row-selected: rgba(147, 51, 234, 0.11);
+      --track: rgba(109, 40, 217, 0.08);
+      --tool-hover: rgba(147, 51, 234, 0.09);
+      --tool-border: rgba(147, 51, 234, 0.26);
+
+      --folder-front: linear-gradient(180deg, #a855f7 0%, #6366f1 100%);
+      --folder-tab: #d8b4fe;
+      --folder-shadow: rgba(147, 51, 234, 0.28);
+      --file-border: #8b79ab;
+    }
+    [data-style="cyber"][data-theme="dark"] {
+      --canvas: #07080d;
+      --canvas-glow-1: rgba(139, 92, 246, 0.13);
+      --canvas-glow-2: rgba(0, 245, 155, 0.07);
+      --surface: rgba(16, 19, 28, 0.92);
+      --surface-solid: #10131c;
+      --surface-elevated: rgba(24, 28, 43, 0.96);
+      --surface-subtle: #161a28;
+      --surface-recessed: #090b11;
+      --toolbar: rgba(19, 23, 34, 0.92);
+
+      --ink: #f8fafc;
+      --ink-secondary: #cbd5e1;
+      --muted: #7e86a0;
+      --faint: #4e566e;
+
+      --line: #1f2436;
+      --line-subtle: #171b29;
+      --line-strong: #2d334d;
+      --specular: rgba(255, 255, 255, 0.07);
+
+      --rail: linear-gradient(180deg, #0b0d14 0%, #05060a 100%);
+      --rail-border: #1e2233;
+      --rail-hover: #161926;
+      --rail-ink: #6d748c;
+      --rail-active-ink: #ffffff;
+
+      --mint: #c084fc;
+      --mint-deep: #9333ea;
+      --mint-hover: #a855f7;
+      --mint-glow: rgba(147, 51, 234, 0.38);
+      --mint-soft: rgba(147, 51, 234, 0.16);
+
+      --added: #00f59b;
+      --added-bright: #10b981;
+      --added-bg: rgba(0, 245, 155, 0.13);
+      --added-border: rgba(16, 185, 129, 0.36);
+      --removed: #ff2e63;
+      --removed-bright: #f43f5e;
+      --removed-bg: rgba(255, 46, 99, 0.14);
+      --removed-border: rgba(244, 63, 94, 0.36);
+
+      --row-hover: #171a28;
+      --row-selected: #221b38;
+      --track: #1d2233;
+      --tool-hover: #251c3d;
+      --tool-border: #6d28d9;
+
+      --folder-front: linear-gradient(180deg, #a855f7 0%, #6366f1 100%);
+      --folder-tab: #d8b4fe;
+      --folder-shadow: rgba(147, 51, 234, 0.35);
+      --file-border: #64748b;
+    }
+
+    /* ==========================================================================
+       3. 全局重置、关键帧动画库与基础交互规范
+       ========================================================================== */
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background-color: var(--canvas);
+      background-image:
+        radial-gradient(circle at 85% 12%, var(--canvas-glow-1) 0%, transparent 48%),
+        radial-gradient(circle at 20% 90%, var(--canvas-glow-2) 0%, transparent 50%);
+      font-size: 13px;
+      line-height: 1.45;
+      transition: background-color 0.3s var(--ease-out), color 0.2s var(--ease-out);
+    }
+    button, select, input, textarea { font: inherit; color: inherit; }
+    button {
+      cursor: pointer;
+      user-select: none;
+      transition:
+        transform 0.18s var(--ease-spring),
+        background-color 0.18s var(--ease-out),
+        border-color 0.18s var(--ease-out),
+        color 0.18s var(--ease-out),
+        box-shadow 0.2s var(--ease-out);
+    }
+    button:active:not(:disabled) { transform: scale(0.95); }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 2px solid var(--mint-deep);
+      outline-offset: 2px;
+    }
+    button:disabled { cursor: not-allowed; opacity: 0.48; transform: none !important; }
+    .hidden { display: none !important; }
+
+    /* 高性能 GPU 合成器关键帧 */
+    @keyframes view-enter {
+      from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.994); }
+      to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes subtree-enter {
+      from { opacity: 0; transform: translate3d(0, -5px, 0); }
+      to { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    @keyframes bar-grow {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    @keyframes float-idle {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -6px, 0); }
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.92); opacity: 0.65; }
+      70%, 100% { transform: scale(1.32); opacity: 0; }
+    }
+    @keyframes arrow-flow {
+      0%, 100% { transform: translate3d(-1.5px, 0, 0); opacity: 0.7; }
+      50% { transform: translate3d(2px, 0, 0); opacity: 1; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ==========================================================================
+       4. 悬浮岛屿主框架、全局自定义标题栏与通高导航坞 (.app, .window-controls & .side)
+       ========================================================================== */
+    .app {
+      position: relative;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr);
+      grid-template-rows: 32px minmax(0, 1fr);
+      gap: 6px 12px;
+      padding: 8px 12px 12px;
+      height: 100dvh;
+      min-width: 0;
+    }
+
+    /* 左侧暗色钛金导航坞：纵向贯穿全高 */
+    .side {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: 64px;
+      padding: 16px 10px;
+      color: var(--rail-ink);
+      background: var(--rail);
+      border: 1px solid var(--rail-border);
+      border-radius: var(--radius-xl);
+      box-shadow:
+        0 20px 40px -12px rgba(0, 0, 0, 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      z-index: 30;
+    }
+    .side.open { width: 64px; }
+
+    .brand {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 左上角 brand-mark：升级为动态主题调色盘触发器 */
+    .brand-mark {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 13px;
+      color: #ffffff;
+      background: linear-gradient(145deg, var(--mint) 0%, var(--mint-deep) 100%);
+      box-shadow:
+        0 6px 18px var(--mint-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition:
+        transform 0.24s var(--ease-spring),
+        box-shadow 0.24s var(--ease-out),
+        background 0.28s ease;
+    }
+    .brand-mark:hover {
+      transform: scale(1.07) rotate(-4deg);
+      box-shadow:
+        0 10px 24px var(--mint-glow),
+        0 0 0 3px rgba(255, 255, 255, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+    .brand-mark:active {
+      transform: scale(0.94);
+    }
+    /* 右下角微缩调色指示光点 */
+    .brand-mark::before {
+      content: "";
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      width: 10px;
+      height: 10px;
+      border: 2px solid #0e1017;
+      border-radius: 50%;
+      background: var(--added-bright);
+      box-shadow: 0 0 6px var(--added-bright);
+      pointer-events: none;
+    }
+    /* 右侧毛玻璃悬浮提示卡 */
+    .brand-mark::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: calc(100% + 14px);
+      top: 50%;
+      transform: translate3d(-6px, -50%, 0) scale(0.94);
+      padding: 5px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius-xs);
+      color: #f8fafc;
+      background: rgba(15, 17, 26, 0.92);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s var(--ease-out), transform 0.18s var(--ease-spring);
+      z-index: 60;
+    }
+    .brand-mark:hover::after {
+      opacity: 1;
+      transform: translate3d(0, -50%, 0) scale(1);
+    }
+    .brand-mark svg { width: 21px; height: 21px; fill: currentColor; }
+    .brand-copy, .nav-label, .settings-label, .side-note { display: none !important; }
+
+    /* 顶部右侧全局窗口控制栏：融入画布背景 + 左侧微水印 + 居中拖拽条 */
+    .window-controls {
+      grid-column: 2;
+      grid-row: 1;
+      position: relative;
+      z-index: 40;
+      height: 36px;
+      margin-top: -6px;
+      padding: 6px 2px 0 6px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      user-select: none;
+    }
+    .window-controls::before {
+      content: "磁迹 TraceDisk";
+      margin-right: auto;
+      display: inline-flex;
+      align-items: center;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.03em;
+      opacity: 0.68;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    [data-locale="en"] .window-controls::before {
+      content: "TraceDisk  ·  Local Snapshot Workspace";
+    }
+    .window-controls:hover::before {
+      opacity: 0.92;
+    }
+    .window-controls::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: calc(50% + 2px);
+      transform: translate(-50%, -50%);
+      width: 36px;
+      height: 3.5px;
+      border-radius: 999px;
+      background: var(--line-strong);
+      opacity: 0.5;
+      pointer-events: none;
+      transition: width 0.22s var(--ease-spring), opacity 0.2s ease, background-color 0.2s ease;
+    }
+    .window-controls:hover::after {
+      width: 48px;
+      opacity: 0.85;
+      background: var(--mint-deep);
+    }
+
+    .window-control {
+      width: 32px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      background: transparent;
+    }
+    .window-control:hover {
+      color: var(--ink);
+      background: var(--surface);
+      border-color: var(--line);
+      box-shadow: var(--shadow-xs);
+      transform: translateY(-0.5px);
+    }
+    .window-control.close:hover {
+      color: #ffffff;
+      background: linear-gradient(180deg, #f43f5e 0%, #e11d48 100%);
+      border-color: #e11d48;
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    }
+    .window-control svg {
+      width: 13px;
+      height: 13px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .window-control .restore-icon { display: none; }
+    .window-control[data-maximized="true"] .maximize-icon { display: none; }
+    .window-control[data-maximized="true"] .restore-icon { display: block; }
+
+    .nav { display: grid; gap: 10px; width: 100%; }
+    .nav-btn, .settings-btn {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 13px;
+      color: var(--rail-ink);
+      background: transparent;
+    }
+    .nav-btn:hover, .settings-btn:hover {
+      color: var(--rail-active-ink);
+      background: var(--rail-hover);
+      border-color: rgba(255, 255, 255, 0.08);
+      transform: translateY(-1px);
+    }
+    .nav-btn.active, .settings-btn.active {
+      color: var(--rail-active-ink);
+      background: linear-gradient(180deg, var(--mint-soft) 0%, rgba(255, 255, 255, 0.04) 100%);
+      border-color: var(--tool-border);
+      box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    }
+    .nav-btn.active::before {
+      content: "";
+      position: absolute;
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 20px;
+      border-radius: 0 4px 4px 0;
+      background: var(--mint);
+      box-shadow: 0 0 12px var(--mint), 0 0 4px #ffffff;
+    }
+    .nav-btn::after, .settings-btn::after {
+      content: attr(title);
+      position: absolute;
+      left: calc(100% + 14px);
+      top: 50%;
+      transform: translate3d(-6px, -50%, 0) scale(0.94);
+      padding: 5px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius-xs);
+      color: #f8fafc;
+      background: rgba(15, 17, 26, 0.92);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s var(--ease-out), transform 0.18s var(--ease-spring);
+      z-index: 60;
+    }
+    .nav-btn:hover::after, .settings-btn:hover::after {
+      opacity: 1;
+      transform: translate3d(0, -50%, 0) scale(1);
+    }
+
+    .nav-icon, .settings-icon { width: 20px; height: 20px; display: grid; place-items: center; }
+    .nav-icon svg, .settings-icon svg {
+      width: 19px;
+      height: 19px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.25s var(--ease-spring);
+    }
+    .settings-btn:hover .settings-icon svg { transform: rotate(45deg); }
+    .side-gap { flex: 1; }
+
+    /* ==========================================================================
+       5. 主工作台与悬浮顶栏 (.main & .overview)
+       ========================================================================== */
+    .main {
+      grid-column: 2;
+      grid-row: 2;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 10px;
+      background: transparent;
+    }
+
+    .overview {
+      min-width: 0;
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 10px 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-sm);
+      z-index: 25;
+    }
+
+    .disk { min-width: 0; display: flex; align-items: center; gap: 14px; }
+    .disk-icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 13px;
+      color: var(--mint-deep);
+      background: linear-gradient(145deg, var(--surface-solid) 0%, var(--surface-subtle) 100%);
+      border: 1px solid var(--line-strong);
+      box-shadow: var(--shadow-xs), 0 4px 10px var(--mint-soft);
+      transition: transform 0.22s var(--ease-spring);
+    }
+    .disk:hover .disk-icon { transform: scale(1.04) translateY(-1px); }
+    .disk-icon svg { width: 22px; height: 22px; }
+    .disk-meta { min-width: 0; }
+    .disk-meta h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15.5px;
+      font-weight: 720;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    .disk-meta p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* 遥测仪风格顶部统计舱 */
+    .overview-summary {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: auto;
+      padding: 5px 8px 5px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface-subtle);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+      animation: view-enter 0.25s var(--ease-spring);
+    }
+    .overview-root {
+      min-width: 0;
+      max-width: 240px;
+      padding-right: 12px;
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .overview-root strong {
+      display: block;
+      margin-bottom: 1px;
+      color: var(--faint);
+      font-size: 10px;
+      font-weight: 680;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .overview-root button {
+      max-width: 100%;
+      overflow: hidden;
+      padding: 0;
+      border: 0;
+      color: var(--ink-secondary);
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .overview-root button:hover { color: var(--mint-deep); text-decoration: underline; }
+
+    .overview-stats { display: flex; align-items: center; gap: 6px; }
+    .overview-stat {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 76px;
+      padding: 4px 10px;
+      border: 1px solid var(--line-subtle);
+      border-radius: var(--radius-sm);
+      background: var(--surface-solid);
+      box-shadow: var(--shadow-xs);
+      transition: transform 0.16s var(--ease-spring), border-color 0.16s ease, background-color 0.16s ease;
+    }
+    .overview-stat.added:hover {
+      background: var(--added-bg);
+      border-color: var(--added-border);
+      transform: translateY(-1px);
+    }
+    .overview-stat.removed:hover {
+      background: var(--removed-bg);
+      border-color: var(--removed-border);
+      transform: translateY(-1px);
+    }
+    .overview-stat small {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 640;
+    }
+    .overview-stat small::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--faint);
+    }
+    .overview-stat.added small::before { background: var(--added-bright); box-shadow: 0 0 6px var(--added-bright); }
+    .overview-stat.removed small::before { background: var(--removed-bright); box-shadow: 0 0 6px var(--removed-bright); }
+    .overview-stat.net small::before { background: var(--mint-deep); }
+
+    .overview-stat strong,
+    button.overview-stat-value {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 1px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 720;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    button.overview-stat-value:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .overview-stat.added strong, .overview-stat.added button { color: var(--added); }
+    .overview-stat.removed strong, .overview-stat.removed button { color: var(--removed); }
+    .overview-stat.net strong, .overview-stat.net button { color: var(--ink); }
+
+    /* 主操作按钮：立体高光胶囊 */
+    .primary-btn {
+      flex: 0 0 auto;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 18px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: var(--radius-md);
+      color: #ffffff;
+      background: linear-gradient(180deg, var(--mint) 0%, var(--mint-deep) 100%);
+      font-size: 12.5px;
+      font-weight: 660;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      box-shadow:
+        0 6px 16px -3px var(--mint-glow),
+        0 1px 2px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.38);
+    }
+    .primary-btn:hover {
+      background: linear-gradient(180deg, var(--mint-deep) 0%, var(--mint-hover) 100%);
+      box-shadow:
+        0 10px 22px -4px var(--mint-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.45);
+      transform: translateY(-1.5px);
+    }
+    .primary-btn svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      transition: transform 0.22s var(--ease-spring);
+    }
+    .primary-btn:hover svg { transform: rotate(90deg); }
+
+    /* ==========================================================================
+       6. 双槽快照对比控制台与自定义下拉控件 (.comparebar & .select-ui)
+       ========================================================================== */
+    .comparebar {
+      position: relative;
+      z-index: 20;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--toolbar);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-sm);
+    }
+    .comparebar > span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+    .snapshot-pair {
+      min-width: 0;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+    }
+
+    .snapshot-picker {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 5px 7px 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface-solid);
+      box-shadow: var(--shadow-xs);
+      transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), transform 0.18s var(--ease-spring);
+    }
+    .snapshot-picker:hover {
+      border-color: var(--line-strong);
+      transform: translateY(-0.5px);
+    }
+    .snapshot-picker:has(.select-ui.open) {
+      border-color: var(--mint-deep);
+      box-shadow: 0 0 0 3px var(--mint-glow), var(--shadow-xs);
+    }
+    .snapshot-picker > span {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--ink-secondary);
+      font-size: 12px;
+      font-weight: 660;
+      white-space: nowrap;
+    }
+    #snapALabel::before, #snapBLabel::before {
+      width: 21px;
+      height: 21px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 6px;
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      border: 1px solid var(--tool-border);
+      content: "A";
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+    #snapBLabel::before {
+      color: #ffffff;
+      background: linear-gradient(145deg, var(--mint) 0%, var(--mint-deep) 100%);
+      border-color: var(--mint-deep);
+      content: "B";
+      box-shadow: 0 2px 6px var(--mint-glow);
+    }
+
+    .snapshot-direction {
+      width: 30px;
+      height: 30px;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: var(--mint-deep);
+      background: var(--surface-solid);
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: var(--shadow-xs);
+      animation: arrow-flow 2.4s ease-in-out infinite;
+    }
+
+    /* 原生与自定义 Select 深度美化 */
+    .select {
+      appearance: none;
+      min-width: 0;
+      width: 100%;
+      height: 32px;
+      padding: 0 28px 0 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background-color: var(--surface-solid);
+      font-size: 12px;
+      font-weight: 560;
+      cursor: pointer;
+    }
+    .select option, .directory-tool select option, .folder-picker select option {
+      color: var(--ink);
+      background: var(--surface-solid);
+    }
+
+    .select-ui { position: relative; min-width: 0; width: 100%; }
+    .select-ui > select {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      padding: 0;
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .select-trigger {
+      width: 100%;
+      min-width: 0;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: var(--surface-subtle);
+      font-size: 12px;
+      font-weight: 560;
+      text-align: left;
+      cursor: pointer;
+    }
+    .snapshot-picker .select-ui,
+    .snapshot-picker .select-trigger { height: 34px; }
+    .snapshot-picker .select-trigger {
+      border-color: transparent;
+      background: var(--surface-subtle);
+    }
+    .snapshot-picker .select-trigger:hover {
+      background: var(--tool-hover);
+      color: var(--mint-deep);
+    }
+    .select-trigger::after {
+      flex: 0 0 auto;
+      color: var(--muted);
+      content: "⌄";
+      font-size: 13px;
+      line-height: 1;
+      transition: transform 0.2s var(--ease-spring), color 0.16s ease;
+    }
+    .select-ui.open .select-trigger::after { transform: rotate(180deg); color: var(--mint-deep); }
+    .select-display { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .select-menu {
+      position: absolute;
+      top: calc(100% + 7px);
+      left: 0;
+      z-index: 80;
+      min-width: 100%;
+      width: max-content;
+      max-width: min(440px, 80vw);
+      max-height: 268px;
+      overflow: auto;
+      padding: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
+      backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      visibility: hidden;
+      transform-origin: top center;
+      transform: translate3d(0, -8px, 0) scale(0.96);
+      pointer-events: none;
+      transition:
+        opacity 0.18s var(--ease-out),
+        transform 0.22s var(--ease-spring),
+        visibility 0s linear 0.18s;
+    }
+    .select-ui.open .select-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translate3d(0, 0, 0) scale(1);
+      pointer-events: auto;
+      transition:
+        opacity 0.18s var(--ease-out),
+        transform 0.22s var(--ease-spring),
+        visibility 0s linear 0s;
+    }
+    .select-option {
+      width: 100%;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 11px;
+      border: 0;
+      border-radius: var(--radius-xs);
+      color: var(--ink);
+      background: transparent;
+      font-size: 12px;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .select-option:hover {
+      background: var(--row-hover);
+      color: var(--mint-deep);
+      transform: translateX(2px);
+    }
+    .select-option.selected {
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      font-weight: 660;
+    }
+    .select-option.selected::after {
+      content: "✓";
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--mint-deep);
+    }
+    .select-option.placeholder { color: var(--muted); font-style: italic; }
+
+    .select-ui.compact { width: auto; flex: 0 0 auto; }
+    .select-ui.compact .select-trigger {
+      width: auto;
+      min-width: 58px;
+      height: 26px;
+      padding: 0 6px;
+      border-color: transparent;
+      border-radius: var(--radius-xs);
+      color: var(--ink-secondary);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 640;
+    }
+    .select-ui.compact .select-menu { right: 0; left: auto; min-width: 136px; transform-origin: top right; }
+
+    .compare-actions {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .compare-action {
+      height: 40px;
+      padding: 0 17px;
+      border: 1px solid var(--tool-border);
+      border-radius: var(--radius-md);
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      font-size: 12.5px;
+      font-weight: 660;
+      white-space: nowrap;
+      box-shadow: var(--shadow-xs);
+    }
+    .compare-action:hover, .compare-action.active {
+      color: #ffffff;
+      background: var(--mint-deep);
+      border-color: var(--mint-deep);
+      box-shadow: 0 6px 16px -3px var(--mint-glow);
+      transform: translateY(-1px);
+    }
+    .compare-action.ghost {
+      border-color: var(--line);
+      color: var(--muted);
+      background: var(--surface-solid);
+    }
+    .compare-action.ghost:hover {
+      border-color: var(--line-strong);
+      color: var(--ink);
+      background: var(--surface-subtle);
+      box-shadow: var(--shadow-xs);
+    }
+
+    .scan-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border: 1px solid var(--tool-border);
+      border-radius: 999px;
+      background: var(--tool-hover);
+      color: var(--mint-deep) !important;
+      font-size: 11.5px;
+      font-weight: 660;
+    }
+    .scan-status::before {
+      width: 10px;
+      height: 10px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      content: "";
+    }
+
+    /* ==========================================================================
+       7. 空状态雷达视图 (.empty)
+       ========================================================================== */
+    .empty {
+      min-height: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 10px;
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-sm);
+      text-align: center;
+      animation: view-enter 0.32s var(--ease-spring);
+    }
+    .empty-icon {
+      position: relative;
+      width: 78px;
+      height: 78px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 10px;
+      border: 1px solid var(--tool-border);
+      border-radius: 24px;
+      color: var(--mint-deep);
+      background: linear-gradient(145deg, var(--surface-solid) 0%, var(--tool-hover) 100%);
+      box-shadow:
+        0 14px 30px -6px var(--mint-glow),
+        inset 0 1px 0 var(--specular);
+      animation: float-idle 4s ease-in-out infinite;
+    }
+    .empty-icon::before {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border: 1.5px solid var(--mint-deep);
+      border-radius: 28px;
+      opacity: 0;
+      pointer-events: none;
+      animation: pulse-ring 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+    .empty-icon svg {
+      width: 34px;
+      height: 34px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .empty-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 720;
+      letter-spacing: -0.015em;
+    }
+    .empty-hint {
+      margin: 0;
+      max-width: 380px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.7;
+    }
+
+    /* ==========================================================================
+       8. 目录差异树主舞台与高性能虚拟质感列表 (.test-view, .directory-bar, .tree-scroll)
+       ========================================================================== */
+    .test-view {
+      --tree-cols: minmax(0, 1.55fr) minmax(120px, 0.6fr) minmax(120px, 0.55fr) 22px;
+      position: relative;
+      z-index: 10;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 50px 34px minmax(0, 1fr);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-sm);
+      animation: view-enter 0.28s var(--ease-spring);
+    }
+    .test-view.single-snapshot {
+      --tree-cols: minmax(0, 1fr) 22px;
+      grid-template-rows: 50px minmax(0, 1fr);
+    }
+    .test-view.single-snapshot .table-head,
+    .test-view.single-snapshot .directory-tools > label { display: none; }
+    .overview-summary.single-snapshot .overview-stats { display: none; }
+    .test-view.single-snapshot .visual,
+    .test-view.single-snapshot .amount { display: none; }
+
+    .directory-bar {
+      position: relative;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--line);
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      background: var(--surface-solid);
+    }
+    .directory-bar-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .directory-bar-title::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mint-deep);
+      box-shadow: 0 0 8px var(--mint-glow);
+    }
+
+    .directory-tools { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    .directory-tool {
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: var(--surface-subtle);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.16s var(--ease-out);
+    }
+    .directory-tool:hover, .directory-tool.active {
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      border-color: var(--tool-border);
+    }
+    .directory-tool svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .directory-search {
+      width: 0;
+      min-width: 0;
+      padding: 0;
+      opacity: 0;
+      border: 0;
+      transition:
+        width 0.24s var(--ease-spring),
+        opacity 0.16s var(--ease-out),
+        padding 0.2s var(--ease-out);
+    }
+    .directory-search.open {
+      width: 220px;
+      height: 32px;
+      padding: 0 12px;
+      opacity: 1;
+      border: 1px solid var(--mint-deep);
+      border-radius: var(--radius-sm);
+      background: var(--surface-solid);
+      color: var(--ink);
+      font-size: 12px;
+      box-shadow: 0 0 0 3px var(--mint-glow);
+      outline: none;
+    }
+    .directory-search::placeholder { color: var(--faint); }
+
+    .table-head {
+      position: relative;
+      z-index: 5;
+      display: block;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      background: var(--surface-subtle);
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .head-labels {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: var(--tree-cols);
+      align-items: center;
+      column-gap: 14px;
+    }
+    .head-labels span:not(:first-child) { text-align: right; }
+
+    .tree-scroll {
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 6px 18px 18px;
+      border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+      scrollbar-color: var(--line-strong) transparent;
+      scrollbar-width: thin;
+    }
+    .tree-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+    .tree-scroll::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background: var(--line-strong);
+      background-clip: padding-box;
+    }
+
+    .row {
+      contain: layout style;
+      display: grid;
+      grid-template-columns: var(--tree-cols);
+      align-items: center;
+      column-gap: 14px;
+      min-height: var(--row-height);
+      padding: 0 10px;
+      margin-bottom: 1px;
+      border-bottom: 1px solid var(--line-subtle);
+      border-radius: var(--radius-sm);
+      cursor: default;
+      transition: background-color 0.12s ease;
+    }
+    .row:hover { background-color: var(--row-hover); }
+    .row.selected {
+      background-color: var(--row-selected);
+      box-shadow: inset 3.5px 0 0 var(--mint-deep);
+    }
+
+    .name {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      transition: transform 0.16s var(--ease-out);
+    }
+    .row:hover .name { transform: translate3d(2px, 0, 0); }
+    .name.indent { padding-left: 25px; }
+
+    .chev {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      flex: 0 0 auto;
+      transition: background-color 0.14s ease, color 0.14s ease, transform 0.16s var(--ease-spring);
+    }
+    .chev.toggle { cursor: pointer; }
+    .chev.toggle:hover {
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      transform: scale(1.12);
+    }
+
+    .folder, .snapshot-folder-icon {
+      width: 18px;
+      height: 13px;
+      position: relative;
+      border-radius: 2.5px 4px 4px 4px;
+      flex: 0 0 auto;
+      background: var(--folder-front);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 2px 4px var(--folder-shadow);
+    }
+    .folder::before, .snapshot-folder-icon::before {
+      position: absolute;
+      top: -3px;
+      left: 0;
+      width: 8px;
+      height: 4px;
+      border-radius: 3px 3px 0 0;
+      background: var(--folder-tab);
+      content: "";
+    }
+
+    .file-row .file-icon {
+      width: 14px;
+      height: 16px;
+      position: relative;
+      flex: 0 0 auto;
+      border: 1.25px solid var(--file-border);
+      border-radius: 3px;
+      background: var(--surface-solid);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+    .file-row .file-icon::after {
+      position: absolute;
+      right: -1px;
+      top: -1px;
+      width: 5px;
+      height: 5px;
+      border-left: 1.25px solid var(--file-border);
+      border-bottom: 1.25px solid var(--file-border);
+      background: var(--surface-subtle);
+      content: "";
+    }
+
+    .path { min-width: 0; }
+    .file-row .path {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .path strong {
+      display: block;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-row .path strong {
+      min-width: 0;
+      color: var(--ink-secondary);
+      font-weight: 500;
+      font-size: 12.5px;
+    }
+    .file-status {
+      flex: 0 0 auto;
+      padding: 2px 7px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .file-status.added {
+      color: var(--added);
+      background: var(--added-bg);
+      border-color: var(--added-border);
+    }
+    .file-status.removed {
+      color: var(--removed);
+      background: var(--removed-bg);
+      border-color: var(--removed-border);
+    }
+    .file-status.changed {
+      color: var(--ink-secondary);
+      background: var(--surface-subtle);
+      border-color: var(--line-strong);
+    }
+
+    .visual {
+      width: 100%;
+      height: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--track);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+    .visual-lane {
+      display: block;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: inherit;
+    }
+    .fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      transform-origin: left center;
+      animation: bar-grow 0.42s var(--ease-out) both;
+    }
+    .fill.added { background: linear-gradient(90deg, var(--mint-deep), var(--added-bright)); }
+    .fill.removed { background: linear-gradient(90deg, #fb7185, var(--removed)); }
+    .fill.changed { background: linear-gradient(90deg, var(--ink-secondary), var(--muted)); }
+    .folder-visual .fill.added { background: linear-gradient(90deg, var(--added), var(--added-bright)); }
+    .folder-visual .fill.removed { background: linear-gradient(90deg, var(--removed), var(--removed-bright)); }
+
+    .amount {
+      justify-self: end;
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 680;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    button.amount {
+      padding: 2.5px 9px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+    }
+    button.amount.added {
+      color: var(--added);
+      background: var(--added-bg);
+      border-color: var(--added-border);
+    }
+    button.amount.removed {
+      color: var(--removed);
+      background: var(--removed-bg);
+      border-color: var(--removed-border);
+    }
+    button.amount.changed {
+      color: var(--ink-secondary);
+      background: var(--surface-subtle);
+      border-color: var(--line-strong);
+    }
+    button.amount:hover:not(:disabled) {
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+    }
+    button.folder-amount:disabled { cursor: default; opacity: 1; }
+    span.amount.added { color: var(--added); padding-right: 6px; }
+    span.amount.removed { color: var(--removed); padding-right: 6px; }
+    span.amount.changed { color: var(--ink-secondary); padding-right: 6px; }
+    .amount.empty { color: var(--faint); font-weight: 450; background: transparent !important; border-color: transparent !important; }
+
+    .arrow {
+      color: var(--faint);
+      font-size: 15px;
+      text-align: right;
+      padding-right: 2px;
+      transition: transform 0.15s var(--ease-out), color 0.15s ease;
+    }
+    .row:hover .arrow {
+      color: var(--mint-deep);
+      transform: translate3d(2px, 0, 0);
+    }
+
+    .subtree { animation: subtree-enter 0.18s var(--ease-out); }
+    .subtree.hidden { display: none !important; }
+
+    /* ==========================================================================
+       9. 模态框、快照管理、设置面板与主题风格选择弹窗 (#styleModal)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(8, 10, 16, 0.52);
+      backdrop-filter: blur(8px);
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity 0.22s var(--ease-out),
+        visibility 0s linear 0s;
+    }
+    .modal-backdrop.hidden {
+      display: grid !important;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition:
+        opacity 0.18s var(--ease-out),
+        visibility 0s linear 0.18s;
+    }
+
+    .modal {
+      width: min(640px, 100%);
+      max-height: min(760px, 88vh);
+      overflow: auto;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-xl);
+      background: var(--surface-solid);
+      box-shadow: var(--shadow-lg);
+      transform: translate3d(0, 0, 0) scale(1);
+      transition: transform 0.26s var(--ease-spring);
+    }
+    .modal.settings-modal,
+    .modal.style-modal {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .settings-modal > .modal-head,
+    .style-modal > .modal-head { flex: 0 0 auto; }
+    .settings-modal > .modal-body,
+    .style-modal > .modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-color: var(--line-strong) transparent;
+      scrollbar-width: thin;
+    }
+    .settings-modal > .modal-body::-webkit-scrollbar,
+    .style-modal > .modal-body::-webkit-scrollbar { width: 8px; }
+    .settings-modal > .modal-body::-webkit-scrollbar-track,
+    .style-modal > .modal-body::-webkit-scrollbar-track { background: transparent; }
+    .settings-modal > .modal-body::-webkit-scrollbar-thumb,
+    .style-modal > .modal-body::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 8px;
+      background: var(--line-strong);
+      background-clip: padding-box;
+    }
+    .modal-backdrop.hidden .modal {
+      transform: translate3d(0, 14px, 0) scale(0.95);
+    }
+
+    /* 主题风格选择弹窗专属样式 (.style-modal) */
+    .modal.style-modal {
+      width: min(680px, 100%);
+    }
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .style-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      padding: 13px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface-subtle);
+      text-align: left;
+      cursor: pointer;
+      transition:
+        transform 0.2s var(--ease-spring),
+        border-color 0.18s var(--ease-out),
+        background-color 0.18s var(--ease-out),
+        box-shadow 0.2s var(--ease-out);
+    }
+    .style-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--line-strong);
+      background: var(--surface-solid);
+      box-shadow: var(--shadow-sm);
+    }
+    .style-card.active {
+      border-color: var(--mint-deep);
+      background: var(--surface-solid);
+      box-shadow: 0 0 0 3px var(--mint-glow), var(--shadow-sm);
+    }
+    /* 微缩主题界面预览舱 */
+    .style-preview {
+      height: 76px;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 7px;
+      padding: 7px;
+      border-radius: 11px;
+      border: 1px solid rgba(128, 128, 128, 0.16);
+      background: var(--sw-canvas);
+      overflow: hidden;
+    }
+    .style-preview-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding-top: 5px;
+      border-radius: 7px;
+      background: var(--sw-rail);
+    }
+    .style-preview-logo {
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      background: var(--sw-accent);
+      box-shadow: 0 0 6px var(--sw-accent);
+    }
+    .style-preview-dot {
+      width: 8px;
+      height: 3px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.28);
+    }
+    .style-preview-main {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 7px 9px;
+      border-radius: 7px;
+      background: var(--sw-surface);
+      border: 1px solid rgba(128, 128, 128, 0.12);
+    }
+    .style-preview-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .style-preview-title {
+      width: 45%;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--sw-ink);
+      opacity: 0.8;
+    }
+    .style-preview-btn {
+      width: 28px;
+      height: 10px;
+      border-radius: 4px;
+      background: var(--sw-accent);
+    }
+    .style-preview-bars {
+      display: grid;
+      gap: 4px;
+    }
+    .style-preview-bar {
+      height: 5px;
+      border-radius: 99px;
+      background: rgba(128, 128, 128, 0.15);
+      overflow: hidden;
+    }
+    .style-preview-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+    }
+    .style-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .style-card-title {
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+    .style-card-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 680;
+      color: var(--muted);
+      background: var(--surface-recessed);
+    }
+    .style-card.active .style-card-badge {
+      color: #ffffff;
+      background: var(--mint-deep);
+    }
+    .style-card-desc {
+      margin: -4px 0 0;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .style-hex-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: auto;
+    }
+    .style-hex-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface-solid);
+      color: var(--ink-secondary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .style-hex-chip > i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    }
+    .style-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex: 0 0 auto;
+      margin-top: 0;
+      padding: 14px 24px 18px;
+      border-top: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .style-mode-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 640;
+    }
+    .style-mode-pills {
+      display: inline-flex;
+      gap: 4px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface-subtle);
+    }
+    .style-mode-pill {
+      height: 28px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 6px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 11.5px;
+      font-weight: 640;
+    }
+    .style-mode-pill:hover { color: var(--ink); }
+    .style-mode-pill.active {
+      color: var(--mint-deep);
+      background: var(--surface-solid);
+      box-shadow: var(--shadow-xs);
+    }
+
+    .modal.snapshot-modal {
+      width: min(940px, 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .snapshot-modal .modal-head { flex: 0 0 auto; }
+    .snapshot-modal .modal-body {
+      min-height: 0;
+      overflow: auto;
+      scrollbar-color: var(--line-strong) transparent;
+      scrollbar-width: thin;
+    }
+    .snapshot-modal .modal-body::-webkit-scrollbar { width: 8px; }
+    .snapshot-modal .modal-body::-webkit-scrollbar-track { background: transparent; }
+    .snapshot-modal .modal-body::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 8px;
+      background: var(--line-strong);
+      background-clip: padding-box;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-subtle);
+    }
+    .modal-head h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15.5px;
+      font-weight: 720;
+      letter-spacing: -0.015em;
+    }
+    .modal-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: transparent;
+      font-size: 19px;
+    }
+    .modal-close:hover {
+      color: var(--ink);
+      background: var(--line);
+      transform: rotate(90deg);
+    }
+    .modal-body { padding: 20px 24px 24px; }
+
+    .snapshot-toolbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-solid);
+      flex-wrap: wrap;
+    }
+    .snapshot-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .snapshot-filter { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+    .snapshot-filter .select-ui { width: 148px; }
+    .snapshot-filter .select-trigger { min-height: 34px; }
+    .modal-btn {
+      min-height: 34px;
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink-secondary);
+      background: var(--surface-solid);
+      font-size: 12px;
+      font-weight: 620;
+      box-shadow: var(--shadow-xs);
+    }
+    .modal-btn:hover {
+      border-color: var(--mint-deep);
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      transform: translateY(-1px);
+    }
+    .modal-btn.primary {
+      color: #ffffff;
+      border-color: var(--mint-deep);
+      background: linear-gradient(180deg, var(--mint) 0%, var(--mint-deep) 100%);
+      box-shadow: 0 4px 12px -2px var(--mint-glow), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+    .modal-btn.primary:hover {
+      background: var(--mint-hover);
+      color: #ffffff;
+      box-shadow: 0 6px 16px -2px var(--mint-glow);
+    }
+
+    .snapshot-list { display: grid; align-content: start; gap: 14px; }
+    .snapshot-folder-group {
+      position: relative;
+      overflow: visible;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface-solid);
+      box-shadow: var(--shadow-xs);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .snapshot-folder-group:has(.select-ui.open) { z-index: 35; }
+    .snapshot-folder-group > summary {
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      border-radius: var(--radius-lg);
+      color: var(--ink);
+      background: var(--surface-subtle);
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      transition: background-color 0.16s ease;
+    }
+    .snapshot-folder-group > summary:hover { background: var(--row-hover); }
+    .snapshot-folder-group[open] > summary {
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .snapshot-folder-group > summary::-webkit-details-marker { display: none; }
+    .snapshot-folder-group > summary::before {
+      width: 10px;
+      color: var(--muted);
+      content: "›";
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1;
+      transition: transform 0.2s var(--ease-spring), color 0.16s ease;
+    }
+    .snapshot-folder-group[open] > summary::before { transform: rotate(90deg); color: var(--mint-deep); }
+    .snapshot-folder-title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+    .snapshot-folder-count {
+      margin-left: auto;
+      padding: 2.5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-solid);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 620;
+      white-space: nowrap;
+    }
+    .snapshot-folder-delete {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      margin-left: 6px;
+      border: 0;
+      border-radius: var(--radius-xs);
+      color: var(--muted);
+      background: transparent;
+      font-size: 15px;
+    }
+    .snapshot-folder-delete:hover { color: var(--removed); background: var(--removed-bg); }
+
+    .snapshot-folder-items { padding: 8px 12px; }
+    .snapshot-folder-group[open] .snapshot-folder-items { animation: subtree-enter 0.22s var(--ease-out) both; }
+    .snapshot-folder-empty { padding: 18px 8px; color: var(--muted); font-size: 12px; text-align: center; }
+
+    .snapshot-item {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.95fr);
+      align-items: center;
+      gap: 18px;
+      padding: 14px 14px;
+      margin: 6px 0;
+      border: 1px solid var(--line-subtle);
+      border-left: 4px solid transparent;
+      border-radius: var(--radius-md);
+      background: var(--surface-solid);
+      transition:
+        background-color 0.16s ease,
+        border-color 0.16s ease,
+        transform 0.18s var(--ease-spring),
+        box-shadow 0.18s ease;
+    }
+    .snapshot-item:has(.select-ui.open) { z-index: 30; }
+    .snapshot-item:hover {
+      background: var(--surface-subtle);
+      border-color: var(--line-strong);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-xs);
+    }
+    .snapshot-item.is-selected { background: var(--row-selected); border-color: var(--tool-border); }
+    .snapshot-item.selected-baseline { border-left-color: var(--mint-deep); }
+    .snapshot-item.selected-current { border-left-color: var(--added-bright); }
+
+    .snapshot-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .snapshot-item strong,
+    .snapshot-heading strong {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 680;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .snapshot-age {
+      flex: 0 0 auto;
+      padding: 2px 8px;
+      border: 1px solid var(--tool-border);
+      border-radius: 999px;
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      font-size: 10.5px;
+      font-weight: 650;
+    }
+    .snapshot-selection {
+      flex: 0 0 auto;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #ffffff;
+      background: var(--mint-deep);
+      font-size: 10.5px;
+      font-weight: 680;
+      box-shadow: 0 2px 6px var(--mint-glow);
+    }
+    .snapshot-selection.current {
+      background: var(--added);
+      box-shadow: 0 2px 6px var(--added-bg);
+    }
+    .snapshot-root-path {
+      display: block;
+      overflow: hidden;
+      margin-top: 5px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .snapshot-facts {
+      display: flex;
+      gap: 16px;
+      margin-top: 4px;
+      color: var(--faint);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .snapshot-item .item-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .select-ui.snapshot-folder-ui { min-width: 140px; max-width: 210px; flex: 1 1 150px; }
+    .select-ui.snapshot-folder-ui .select-trigger { height: 30px; padding-inline: 10px; font-size: 11.5px; }
+
+    .item-action {
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xs);
+      color: var(--ink-secondary);
+      background: var(--surface-solid);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .item-action:hover {
+      color: var(--mint-deep);
+      border-color: var(--mint-deep);
+      background: var(--tool-hover);
+      transform: translateY(-1px);
+    }
+    .item-action.active {
+      color: var(--mint-deep);
+      border-color: var(--mint-deep);
+      background: var(--tool-hover);
+      font-weight: 700;
+    }
+    .item-action[data-action="delete"]:hover {
+      color: var(--removed);
+      border-color: var(--removed-border);
+      background: var(--removed-bg);
+    }
+
+    .prompt-modal { width: min(420px, 100%); }
+    .prompt-field { display: grid; gap: 8px; color: var(--ink); font-size: 12px; font-weight: 650; }
+    .prompt-field input {
+      width: 100%;
+      height: 40px;
+      padding: 0 13px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: var(--surface-subtle);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+    }
+    .prompt-field input:focus {
+      border-color: var(--mint-deep);
+      background: var(--surface-solid);
+      box-shadow: 0 0 0 3px var(--mint-glow);
+    }
+    .prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+    .file-list { display: grid; gap: 6px; max-height: 56vh; overflow: auto; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 13px;
+      border: 1px solid var(--line-subtle);
+      border-radius: var(--radius-sm);
+      background: var(--surface-subtle);
+      transition: border-color 0.14s ease, background-color 0.14s ease, transform 0.14s var(--ease-out);
+    }
+    .file-item:hover {
+      border-color: var(--line-strong);
+      background: var(--row-hover);
+      transform: translateX(2px);
+    }
+    .file-item button {
+      min-width: 0;
+      overflow: hidden;
+      padding: 0;
+      border: 0;
+      color: var(--ink);
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-item button:hover { color: var(--mint-deep); text-decoration: underline; }
+    .file-item small {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+    .empty-list { padding: 32px 0; color: var(--muted); font-size: 12.5px; text-align: center; }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line-subtle);
+    }
+    .setting-row:last-child { border-bottom: 0; }
+    .setting-row strong { display: block; color: var(--ink); font-size: 13px; font-weight: 660; }
+    .setting-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+    .setting-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+    .setting-row .theme-toggle, .setting-row .locale-toggle {
+      width: auto;
+      min-width: 86px;
+      height: 34px;
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink-secondary);
+      background: var(--surface-subtle);
+      font-size: 12px;
+      font-weight: 620;
+    }
+    .setting-row .theme-toggle:hover, .setting-row .locale-toggle:hover {
+      border-color: var(--mint-deep);
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+    }
+    .select-ui.theme-ui { width: 156px; flex: 0 0 156px; }
+    .theme-toggle .sun { display: none; }
+    [data-theme="dark"] .theme-toggle .moon { display: none; }
+    [data-theme="dark"] .theme-toggle .sun { display: block; }
+    .locale-code {
+      min-width: 24px;
+      padding: 1px 6px;
+      border: 1px solid currentColor;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+    .log-output {
+      width: 100%;
+      min-height: 130px;
+      max-height: 220px;
+      resize: vertical;
+      margin-top: 8px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: var(--surface-recessed);
+      font: 11px/1.6 var(--font-mono);
+      white-space: pre-wrap;
+    }
+
+    /* ==========================================================================
+       10. 上下文右键菜单、扫描进度 HUD 与 Toast 通知
+       ========================================================================== */
+    .context-menu {
+      position: fixed;
+      z-index: 100;
+      min-width: 176px;
+      padding: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
+      backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: var(--shadow-lg);
+      transform-origin: top left;
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1);
+      transition:
+        opacity 0.14s var(--ease-out),
+        transform 0.18s var(--ease-spring),
+        visibility 0s linear 0s;
+    }
+    .context-menu.hidden {
+      display: block !important;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: scale(0.92);
+      transition:
+        opacity 0.12s var(--ease-out),
+        transform 0.14s var(--ease-out),
+        visibility 0s linear 0.14s;
+    }
+    .context-menu button {
+      width: 100%;
+      display: block;
+      padding: 7px 11px;
+      border: 0;
+      border-radius: var(--radius-xs);
+      color: var(--ink);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 560;
+      text-align: left;
+    }
+    .context-menu button:hover:not(:disabled) {
+      color: var(--mint-deep);
+      background: var(--tool-hover);
+      transform: translateX(2px);
+    }
+    .context-menu button:disabled { color: var(--faint); cursor: default; }
+
+    .scan-progress {
+      position: fixed;
+      right: 24px;
+      bottom: 64px;
+      z-index: 85;
+      width: min(310px, calc(100vw - 48px));
+      padding: 14px 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-lg);
+      background: var(--surface-elevated);
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow-lg);
+      opacity: 1;
+      visibility: visible;
+      transform: translate3d(0, 0, 0) scale(1);
+      transition:
+        opacity 0.2s var(--ease-out),
+        transform 0.24s var(--ease-spring),
+        visibility 0s linear 0s;
+    }
+    .scan-progress.hidden {
+      display: block !important;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translate3d(0, 12px, 0) scale(0.95);
+      transition:
+        opacity 0.16s var(--ease-out),
+        transform 0.18s var(--ease-out),
+        visibility 0s linear 0.18s;
+    }
+    .scan-progress-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 660;
+    }
+    .scan-progress-head strong {
+      color: var(--mint-deep);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .scan-progress-track {
+      height: 7px;
+      overflow: hidden;
+      margin-top: 9px;
+      border-radius: 999px;
+      background: var(--track);
+    }
+    .scan-progress-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--mint-deep), var(--mint));
+      transition: width 0.18s var(--ease-out);
+    }
+    .scan-progress-fill.indeterminate {
+      width: 40%;
+      animation: scan-indeterminate 1.15s ease-in-out infinite;
+    }
+    @keyframes scan-indeterminate {
+      0% { transform: translateX(-120%); }
+      50% { transform: translateX(150%); }
+      100% { transform: translateX(280%); }
+    }
+
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 20px;
+      z-index: 110;
+      padding: 10px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      color: #f8fafc;
+      background: rgba(15, 17, 26, 0.92);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate3d(0, 10px, 0) scale(0.95);
+      transition:
+        opacity 0.2s var(--ease-out),
+        transform 0.24s var(--ease-spring);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    /* ==========================================================================
+       11. 响应式断点与无障碍减动效适配
+       ========================================================================== */
+    @media (max-width: 980px) {
+      .overview { gap: 12px; }
+      .disk-meta p { display: none; }
+      .overview-summary { gap: 8px; padding: 4px 8px; }
+      .overview-root { max-width: 110px; }
+      .overview-stat { min-width: 60px; padding: 3px 6px; }
+    }
+    @media (max-width: 620px) {
+      .app { padding: 6px 8px 8px; gap: 6px 8px; grid-template-columns: 56px minmax(0, 1fr); }
+      .side, .side.open { width: 56px; padding: 12px 6px; }
+      .window-controls::after { display: none; }
+      .overview { padding: 10px 14px; }
+      .overview-summary { display: none !important; }
+      .comparebar { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px 14px; }
+      .snapshot-pair { grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 6px; }
+      .snapshot-picker { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 6px; }
+      .compare-actions { width: 100%; justify-content: flex-end; }
+      .directory-tool span { display: none; }
+      .directory-search.open { width: 130px; }
+      .test-view { --tree-cols: minmax(0, 1fr) minmax(40px, 0.28fr) minmax(74px, 0.48fr) 14px; }
+      .table-head, .tree-scroll, .directory-bar { padding-inline: 14px; }
+      .snapshot-item { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .snapshot-item .item-actions { justify-content: flex-start; }
+      .style-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (min-width: 621px) and (max-width: 900px) {
+      .snapshot-item { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .snapshot-item .item-actions { justify-content: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="window-controls" id="windowControls" aria-label="窗口控制">
+      <button class="window-control" id="windowMinimize" type="button" title="最小化" aria-label="最小化">
+        <svg viewBox="0 0 16 16"><path d="M3 11.5h10" /></svg>
+      </button>
+      <button class="window-control" id="windowMaximize" type="button" title="最大化" aria-label="最大化">
+        <svg class="maximize-icon" viewBox="0 0 16 16"><rect x="3.2" y="3.2" width="9.6" height="9.6" rx="1" /></svg>
+        <svg class="restore-icon" viewBox="0 0 16 16"><path d="M5.5 4.5h6v6M10.5 11.5h-6v-6" /><path d="m11.5 4.5-6 6" /></svg>
+      </button>
+      <button class="window-control close" id="windowClose" type="button" title="关闭" aria-label="关闭">
+        <svg viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+      </button>
+    </div>
+    <aside class="side" id="side">
+      <div class="brand">
+        <span class="brand-mark" id="brandMarkBtn" role="button" tabindex="0" data-tooltip="主题风格" title="切换主题风格" aria-label="切换主题风格"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 3.8h11.2a2.6 2.6 0 0 1 2.6 2.6v11.2a2.6 2.6 0 0 1-2.6 2.6H6.4a2.6 2.6 0 0 1-2.6-2.6V6.4a2.6 2.6 0 0 1 2.6-2.6Zm2.2 5.1h7.1v2H8.6v-2Zm0 4.2h4.7v2H8.6v-2Z"/></svg></span>
+        <div class="brand-copy"><strong>TraceDisk</strong><small>磁迹 · 本地文件变化</small></div>
+      </div>
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-btn active" title="目录差异"><span class="nav-icon"><svg viewBox="0 0 20 20"><path d="M2.5 5.5h6l1.6 1.8h7.4v8.2H2.5z"/><path d="M2.5 8h15"/></svg></span><span class="nav-label">目录</span></button>
+        <button class="nav-btn" id="snapshotsBtn" title="快照管理"><span class="nav-icon"><svg viewBox="0 0 20 20"><ellipse cx="10" cy="4.5" rx="6.5" ry="2.2"/><path d="M3.5 4.5v10.8c0 1.2 2.9 2.2 6.5 2.2s6.5-1 6.5-2.2V4.5M3.5 9.8c0 1.2 2.9 2.2 6.5 2.2s6.5-1 6.5-2.2"/></svg></span><span class="nav-label">快照</span></button>
+      </nav>
+      <div class="side-gap"></div>
+      <button class="settings-btn" id="settingsBtn" title="设置" aria-label="打开设置"><span class="settings-icon"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.4"/><path d="m8.4 2.7.4 1.6a6 6 0 0 1 2.4 0l.4-1.6 2.1.9-.8 1.5a6.2 6.2 0 0 1 1.7 1.7l1.5-.8.9 2.1-1.6.4a6 6 0 0 1 0 2.4l1.6.4-.9 2.1-1.5-.8a6.2 6.2 0 0 1-1.7 1.7l.8 1.5-2.1.9-.4-1.6a6 6 0 0 1-2.4 0l-.4 1.6-2.1-.9.8-1.5a6.2 6.2 0 0 1-1.7-1.7l-1.5.8-.9-2.1 1.6-.4a6 6 0 0 1 0-2.4L3 8.1l.9-2.1 1.5.8A6.2 6.2 0 0 1 7.1 5l-.8-1.5z"/></svg></span><span class="settings-label">设置</span></button>
+    </aside>
+
+    <main class="main">
+      <header class="overview" id="overview">
+        <div class="disk">
+          <div class="disk-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3.2" y="5" width="17.6" height="14" rx="2" />
+              <path d="M3.2 10h17.6M3.2 14h17.6" />
+              <path d="M6.2 7.2h.01M6.2 11.2h.01M6.2 15.2h.01" />
+            </svg>
+          </div>
+          <div class="disk-meta">
+            <h1 id="appTitle">磁迹 · 文件对比</h1>
+            <p id="appHint">选择磁盘或文件夹，创建快照并查看变化</p>
+          </div>
+        </div>
+        <div class="overview-summary hidden" id="overviewSummary">
+          <div class="overview-root"><strong id="rootLabel">扫描目录</strong><button id="rootPath" type="button" title="打开扫描目录">—</button></div>
+          <div class="overview-stats">
+            <div class="overview-stat added"><small id="addedLabel">新增</small><button class="overview-stat-value" id="addedTotal" type="button">—</button></div>
+            <div class="overview-stat removed"><small id="removedLabel">删除</small><button class="overview-stat-value" id="removedTotal" type="button">—</button></div>
+            <div class="overview-stat net"><small id="netLabel">净变化</small><strong id="netTotal">—</strong></div>
+          </div>
+        </div>
+        <button class="primary-btn" id="newScan" title="新建扫描">
+          <svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" /></svg>
+          新建扫描
+        </button>
+      </header>
+
+      <div class="comparebar" aria-label="选择快照对比">
+        <span class="hidden" id="compareLabel">对比</span>
+        <div class="snapshot-pair">
+          <label class="snapshot-picker"><span id="snapALabel">基准</span><select class="select" id="snapA" aria-label="选择基准快照"><option value="">选择基准快照</option></select></label>
+          <span class="snapshot-direction" id="snapshotDirection" aria-hidden="true">→</span>
+          <label class="snapshot-picker"><span id="snapBLabel">当前</span><select class="select" id="snapB" aria-label="选择当前快照"><option value="">选择当前快照</option></select></label>
+        </div>
+        <div class="compare-actions">
+          <span class="scan-status hidden" id="scanStatus" role="status" aria-live="polite">正在扫描</span>
+          <button class="compare-action" id="compareBtn">开始对比</button>
+          <button class="compare-action ghost" id="clearCompareBtn">清空选择</button>
+        </div>
+      </div>
+
+      <section class="empty" id="empty" aria-label="空状态">
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M3.5 7.5h6l1.6 1.8h9.4v8.2H3.5z" />
+            <path d="M3.5 10h17" />
+          </svg>
+        </div>
+        <p class="empty-title" id="empty-title">还没有快照</p>
+        <p class="empty-hint" id="empty-hint">点击右上角「新建扫描」选择磁盘或文件夹<br />创建两个快照后即可查看目录变化</p>
+      </section>
+
+      <section class="test-view hidden" id="testView" aria-label="目录差异">
+        <div class="directory-bar">
+          <span class="directory-bar-title" id="directoryTitle">目录</span>
+          <div class="directory-tools" aria-label="目录工具">
+            <input class="directory-search" id="directorySearch" type="search" placeholder="搜索目录" aria-label="搜索目录" />
+            <button class="directory-tool" id="searchBtn" title="搜索目录"><svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.2"/><path d="m12.5 12.5 4 4"/></svg><span>搜索</span></button>
+            <label class="directory-tool" title="排序"><svg viewBox="0 0 20 20"><path d="M4 5h12M4 10h8M4 15h4M15 9v7m0 0-2-2m2 2 2-2"/></svg><span>排序</span><select id="sortSelect" aria-label="排序"><option value="name">名称</option><option value="added">新增</option><option value="removed">删除</option></select></label>
+            <label class="directory-tool" title="筛选"><svg viewBox="0 0 20 20"><path d="M3 4h14l-5.5 6v5l-3 1v-6z"/></svg><span>筛选</span><select id="filterSelect" aria-label="筛选"><option value="all">全部</option><option value="added">有新增</option><option value="removed">有删除</option></select></label>
+          </div>
+        </div>
+        <div class="table-head" aria-hidden="true"><div class="head-labels"><span id="headName">名称</span><span id="headBars">变化大小</span><span></span><span></span></div></div>
+        <div class="tree-scroll" id="treeScroll"></div>
+      </section>
+    </main>
+  </div>
+  <div class="modal-backdrop hidden" id="snapshotModal" role="dialog" aria-modal="true" aria-labelledby="snapshotTitle">
+    <div class="modal snapshot-modal">
+      <div class="modal-head"><div><h2 id="snapshotTitle">快照管理</h2><p id="snapshotDesc">整理、重命名和选择用于对比的本地快照</p></div><button class="modal-close" data-close="snapshotModal" aria-label="关闭">×</button></div>
+      <div class="snapshot-toolbar"><div class="snapshot-actions"><button class="modal-btn primary" id="snapshotNew">＋ 新建快照</button><button class="modal-btn" id="createSnapshotFolder">＋ <span id="createFolderLabel">新建文件夹</span></button><label class="snapshot-filter"><span id="snapshotSortLabel">时间</span><select id="snapshotSort"><option value="newest">最新</option><option value="oldest">最早</option></select></label><label class="snapshot-filter"><span id="snapshotDriveLabel">盘符</span><select id="snapshotDriveFilter"><option value="all">全部盘符</option></select></label></div></div>
+      <div class="modal-body"><div class="snapshot-list" id="snapshotList"></div></div>
+    </div>
+  </div>
+  <div class="modal-backdrop hidden" id="textPromptModal" role="dialog" aria-modal="true" aria-labelledby="textPromptTitle">
+    <div class="modal prompt-modal">
+      <div class="modal-head"><div><h2 id="textPromptTitle">输入名称</h2><p id="textPromptDesc"></p></div><button class="modal-close" id="textPromptClose" type="button" aria-label="关闭">×</button></div>
+      <div class="modal-body">
+        <label class="prompt-field"><span id="textPromptLabel">名称</span><input id="textPromptInput" type="text" autocomplete="off" /></label>
+        <div class="prompt-actions"><button class="modal-btn" id="textPromptCancel" type="button">取消</button><button class="modal-btn primary" id="textPromptConfirm" type="button">确定</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop hidden" id="filesModal" role="dialog" aria-modal="true" aria-labelledby="filesTitle">
+    <div class="modal"><div class="modal-head"><div><h2 id="filesTitle">目录变化</h2><p id="filesDesc"></p></div><button class="modal-close" data-close="filesModal" aria-label="关闭">×</button></div><div class="modal-body"><div class="file-list" id="fileList"></div></div></div>
+  </div>
+  <div class="modal-backdrop hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal settings-modal">
+      <div class="modal-head"><div><h2 id="settingsTitle">设置</h2><p id="settingsDesc">调整显示方式和本地工作偏好</p></div><button class="modal-close" data-close="settingsModal" aria-label="关闭">×</button></div>
+      <div class="modal-body"><div class="setting-row"><div><strong id="settingThemeTitle">主题</strong><small id="settingThemeDesc">切换浅色或深色工作区</small></div><select id="themeSelect" aria-label="主题"><option value="light">浅色</option><option value="dark">深色</option><option value="system">跟随系统</option></select></div><div class="setting-row"><div><strong id="settingLangTitle">语言</strong><small id="settingLangDesc">切换中文或 English 界面</small></div><button class="locale-toggle" id="localeToggle" title="切换中文 / English" aria-label="切换中文或英文"><span class="locale-code">中</span></button></div><div class="setting-row"><div><strong id="settingPathTitle">快照保存位置</strong><small id="settingPathDesc">本机 · 使用默认应用数据目录</small></div><div class="setting-actions"><button class="modal-btn" id="changePathBtn">更改存放位置</button><button class="modal-btn" id="defaultPathBtn">默认</button></div></div><div class="setting-row"><div><strong id="settingVersionTitle">版本</strong><small id="settingVersionValue">正在读取…</small></div></div><div class="setting-row"><div><strong id="settingLogTitle">日志</strong><small id="settingLogDesc">仅保存在本机，最多显示最近 200 条</small></div><button class="modal-btn" id="refreshLogBtn">刷新</button></div><textarea class="log-output" id="logOutput" readonly aria-label="日志"></textarea><div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="modal-btn" id="clearLogBtn">清空日志</button></div></div>
+    </div>
+  </div>
+  <!-- 左上角 Brand-Mark 触发的主题风格选择弹窗 -->
+  <div class="modal-backdrop hidden" id="styleModal" role="dialog" aria-modal="true" aria-labelledby="styleModalTitle">
+    <div class="modal style-modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="styleModalTitle">主题风格与色彩方案</h2>
+          <p id="styleModalDesc">点击切换工作台视觉配色，全部方案均自动适配浅色与深色模式</p>
+        </div>
+        <button class="modal-close" data-close="styleModal" aria-label="关闭">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="style-grid" id="styleGrid">
+          <!-- 1. 默认：钛金靛蓝 -->
+          <button type="button" class="style-card active" data-style-choice="default" style="--sw-canvas:#f0f2f7;--sw-rail:#131620;--sw-surface:#ffffff;--sw-ink:#0f131d;--sw-accent:#4f46e5;">
+            <div class="style-preview" aria-hidden="true">
+              <div class="style-preview-rail"><span class="style-preview-logo"></span><span class="style-preview-dot"></span><span class="style-preview-dot"></span></div>
+              <div class="style-preview-main">
+                <div class="style-preview-top"><span class="style-preview-title"></span><span class="style-preview-btn"></span></div>
+                <div class="style-preview-bars">
+                  <div class="style-preview-bar"><span style="width:72%;background:linear-gradient(90deg,#4f46e5,#10b981)"></span></div>
+                  <div class="style-preview-bar"><span style="width:44%;background:linear-gradient(90deg,#fb7185,#e11d48)"></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="style-card-head">
+              <span class="style-card-title" data-i18n-title="default">钛金靛蓝 · Indigo</span>
+              <span class="style-card-badge">当前使用</span>
+            </div>
+            <p class="style-card-desc" data-i18n-desc="default">冷钛银白画布配以电光靛蓝与翡翠绿，现代均衡的精密仪器质感</p>
+            <div class="style-hex-row">
+              <span class="style-hex-chip"><i style="background:#4F46E5"></i>#4F46E5</span>
+              <span class="style-hex-chip"><i style="background:#818CF8"></i>#818CF8</span>
+              <span class="style-hex-chip"><i style="background:#10B981"></i>#10B981</span>
+              <span class="style-hex-chip"><i style="background:#F43F5E"></i>#F43F5E</span>
+            </div>
+          </button>
+
+          <!-- 2. 极地冰川：深海青 -->
+          <button type="button" class="style-card" data-style-choice="arctic" style="--sw-canvas:#eaf0f6;--sw-rail:#0b192c;--sw-surface:#ffffff;--sw-ink:#0a1929;--sw-accent:#0284c7;">
+            <div class="style-preview" aria-hidden="true">
+              <div class="style-preview-rail"><span class="style-preview-logo"></span><span class="style-preview-dot"></span><span class="style-preview-dot"></span></div>
+              <div class="style-preview-main">
+                <div class="style-preview-top"><span class="style-preview-title"></span><span class="style-preview-btn"></span></div>
+                <div class="style-preview-bars">
+                  <div class="style-preview-bar"><span style="width:78%;background:linear-gradient(90deg,#0284c7,#14b8a6)"></span></div>
+                  <div class="style-preview-bar"><span style="width:38%;background:linear-gradient(90deg,#fb7185,#e11d48)"></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="style-card-head">
+              <span class="style-card-title" data-i18n-title="arctic">极地冰川 · Arctic Cyan</span>
+              <span class="style-card-badge">选择</span>
+            </div>
+            <p class="style-card-desc" data-i18n-desc="arctic">冰川蓝灰底色搭配深海午夜导航坞与科技青，冷静通透的实验室风格</p>
+            <div class="style-hex-row">
+              <span class="style-hex-chip"><i style="background:#0284C7"></i>#0284C7</span>
+              <span class="style-hex-chip"><i style="background:#38BDF8"></i>#38BDF8</span>
+              <span class="style-hex-chip"><i style="background:#14B8A6"></i>#14B8A6</span>
+              <span class="style-hex-chip"><i style="background:#0B192C"></i>#0B192C</span>
+            </div>
+          </button>
+
+          <!-- 3. 暖砂琥珀：复古工业 -->
+          <button type="button" class="style-card" data-style-choice="dune" style="--sw-canvas:#efece6;--sw-rail:#1c1917;--sw-surface:#faf8f5;--sw-ink:#1c1917;--sw-accent:#ea580c;">
+            <div class="style-preview" aria-hidden="true">
+              <div class="style-preview-rail"><span class="style-preview-logo"></span><span class="style-preview-dot"></span><span class="style-preview-dot"></span></div>
+              <div class="style-preview-main">
+                <div class="style-preview-top"><span class="style-preview-title"></span><span class="style-preview-btn"></span></div>
+                <div class="style-preview-bars">
+                  <div class="style-preview-bar"><span style="width:66%;background:linear-gradient(90deg,#ea580c,#16a34a)"></span></div>
+                  <div class="style-preview-bar"><span style="width:48%;background:linear-gradient(90deg,#f87171,#b91c1c)"></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="style-card-head">
+              <span class="style-card-title" data-i18n-title="dune">暖砂琥珀 · Dune Amber</span>
+              <span class="style-card-badge">选择</span>
+            </div>
+            <p class="style-card-desc" data-i18n-desc="dune">护眼暖砂象牙白配浓缩咖啡坞与工业熔岩橙，温润耐看的复古硬件风</p>
+            <div class="style-hex-row">
+              <span class="style-hex-chip"><i style="background:#EA580C"></i>#EA580C</span>
+              <span class="style-hex-chip"><i style="background:#F59E0B"></i>#F59E0B</span>
+              <span class="style-hex-chip"><i style="background:#16A34A"></i>#16A34A</span>
+              <span class="style-hex-chip"><i style="background:#FAF8F5"></i>#FAF8F5</span>
+            </div>
+          </button>
+
+          <!-- 4. 赛博黑曜：霓虹紫翠 -->
+          <button type="button" class="style-card" data-style-choice="cyber" style="--sw-canvas:#07080d;--sw-rail:#0b0d14;--sw-surface:#10131c;--sw-ink:#f8fafc;--sw-accent:#9333ea;">
+            <div class="style-preview" aria-hidden="true">
+              <div class="style-preview-rail"><span class="style-preview-logo"></span><span class="style-preview-dot"></span><span class="style-preview-dot"></span></div>
+              <div class="style-preview-main">
+                <div class="style-preview-top"><span class="style-preview-title"></span><span class="style-preview-btn"></span></div>
+                <div class="style-preview-bars">
+                  <div class="style-preview-bar"><span style="width:82%;background:linear-gradient(90deg,#9333ea,#00f59b)"></span></div>
+                  <div class="style-preview-bar"><span style="width:52%;background:linear-gradient(90deg,#ff2e63,#e11d48)"></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="style-card-head">
+              <span class="style-card-title" data-i18n-title="cyber">赛博黑曜 · Cyber Matrix</span>
+              <span class="style-card-badge">选择</span>
+            </div>
+            <p class="style-card-desc" data-i18n-desc="cyber">黑曜石矩阵配以激光电光紫、赛博荧光绿与洋红，高对比度极客终端风</p>
+            <div class="style-hex-row">
+              <span class="style-hex-chip"><i style="background:#9333EA"></i>#9333EA</span>
+              <span class="style-hex-chip"><i style="background:#C084FC"></i>#C084FC</span>
+              <span class="style-hex-chip"><i style="background:#00F59B"></i>#00F59B</span>
+              <span class="style-hex-chip"><i style="background:#FF2E63"></i>#FF2E63</span>
+            </div>
+          </button>
+        </div>
+
+      </div>
+      <div class="style-modal-footer">
+        <span class="style-mode-label" id="styleModeLabel">明暗外观模式</span>
+        <div class="style-mode-pills" id="styleModePills" role="group" aria-label="明暗外观模式">
+          <button type="button" class="style-mode-pill" data-theme-pill="light">浅色</button>
+          <button type="button" class="style-mode-pill" data-theme-pill="dark">深色</button>
+          <button type="button" class="style-mode-pill" data-theme-pill="system">跟随系统</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="context-menu hidden" id="contextMenu" role="menu">
+    <button type="button" id="contextExpand" role="menuitem">展开</button>
+    <button type="button" id="contextExplorer" role="menuitem">在资源管理器中打开</button>
+    <button type="button" id="contextCopyPath" role="menuitem">复制路径</button>
+  </div>
+  <div class="scan-progress hidden" id="scanProgress" role="status" aria-live="polite">
+    <div class="scan-progress-head"><span id="scanProgressLabel">正在扫描</span><strong id="scanProgressPercent">0%</strong></div>
+    <div class="scan-progress-track"><div class="scan-progress-fill" id="scanProgressFill"></div></div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const $ = id => document.getElementById(id);
+    const invoke = (name, args) => {
+      const call = window.__TAURI__?.core?.invoke;
+      if (!call) throw new Error('TraceDisk commands are available in the desktop app.');
+      return call(name, args);
+    };
+    const listen = (name, callback) => window.__TAURI__?.event?.listen?.(name, callback);
+    const toast = message => {
+      const node = $('toast');
+      node.textContent = message;
+      node.classList.add('show');
+      setTimeout(() => node.classList.remove('show'), 2200);
+    };
+    const message = error => String(error?.message || error);
+    const cleanPath = value => {
+      let path = String(value || '').replaceAll('/', '\\');
+      if (path.slice(0, 8).toLowerCase() === '\\\\?\\unc\\') path = `\\\\${path.slice(8)}`;
+      else if (path.slice(0, 4).toLowerCase() === '\\\\?\\') path = path.slice(4);
+      return path;
+    };
+    const joinWindowsPath = (base, relative = '') => {
+      const root = cleanPath(base).replace(/[\\/]+$/, '');
+      const child = String(relative || '').replace(/^[\\/]+/, '');
+      return child ? `${root}\\${child}` : root;
+    };
+    const openModal = id => $(id).classList.remove('hidden');
+    const closeModal = id => $(id).classList.add('hidden');
+    const closeSelectUIs = except => {
+      document.querySelectorAll('.select-ui.open').forEach(shell => {
+        if (shell !== except) {
+          shell.classList.remove('open');
+          shell.querySelector('.select-trigger')?.setAttribute('aria-expanded', 'false');
+        }
+      });
+    };
+    const refreshSelectUI = select => {
+      const shell = select?.closest('.select-ui');
+      if (!shell) return;
+      const display = shell.querySelector('.select-display');
+      const menu = shell.querySelector('.select-menu');
+      const selected = select.selectedOptions[0];
+      display.textContent = selected?.textContent || '';
+      menu.replaceChildren();
+      [...select.options].forEach(option => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `select-option${option.value === select.value ? ' selected' : ''}${!option.value ? ' placeholder' : ''}`;
+        button.textContent = option.textContent;
+        button.dataset.value = option.value;
+        button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', String(option.value === select.value));
+        button.onclick = event => {
+          event.stopPropagation();
+          select.value = option.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          shell.classList.remove('open');
+          shell.querySelector('.select-trigger')?.setAttribute('aria-expanded', 'false');
+          refreshSelectUI(select);
+        };
+        menu.append(button);
+      });
+    };
+    const decorateSelect = (select, options = {}) => {
+      if (!select) return;
+      const existing = select.closest('.select-ui');
+      if (existing) {
+        refreshSelectUI(select);
+        return existing;
+      }
+      const shell = document.createElement('div');
+      shell.className = `select-ui${options.compact ? ' compact' : ''}${options.className ? ` ${options.className}` : ''}`;
+      select.parentNode?.insertBefore(shell, select);
+      shell.append(select);
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'select-trigger';
+      trigger.innerHTML = '<span class="select-display"></span>';
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('aria-haspopup', 'listbox');
+      const menu = document.createElement('div');
+      menu.className = 'select-menu';
+      menu.setAttribute('role', 'listbox');
+      trigger.onclick = event => {
+        event.stopPropagation();
+        const open = !shell.classList.contains('open');
+        closeSelectUIs(shell);
+        shell.classList.toggle('open', open);
+        trigger.setAttribute('aria-expanded', String(open));
+      };
+      select.addEventListener('change', () => refreshSelectUI(select));
+      shell.append(trigger, menu);
+      refreshSelectUI(select);
+      return shell;
+    };
+    const localeCode = $('localeToggle').querySelector('.locale-code');
+    const langText = {
+      zh: { title: '磁迹 · 文件对比', hint: '选择磁盘或文件夹，创建快照并查看变化', scan: '新建扫描', compare: '对比', snapA: '选择基准快照', snapB: '选择当前快照', before: '基准', after: '当前', start: '开始对比', directory: '目录', search: '搜索', searchPlaceholder: '搜索目录或文件', sort: '排序', filter: '筛选', all: '全部', addedOnly: '有新增', removedOnly: '有删除', name: '名称', added: '新增', removed: '删除', empty: '还没有快照', emptyHint: '点击右上角「新建扫描」选择磁盘或文件夹<br />创建两个快照后即可查看目录变化', snapshotTitle: '快照管理', snapshotDesc: '用文件夹整理快照，选择两次扫描进行对比', snapshotNew: '＋ 新建快照', folders: '文件夹', allFolders: '全部文件夹', createFolder: '新建文件夹', folderPrompt: '输入新文件夹名称', folderLabel: '存入文件夹', folderDelete: '删除文件夹', confirmFolderDelete: '删除文件夹“{name}”？其中的快照会移回根目录。', settingsTitle: '设置', settingsDesc: '调整显示方式和本地工作偏好', themeTitle: '主题', themeDesc: '切换浅色或深色工作区', langTitle: '语言', langDesc: '切换中文或 English 界面', pathTitle: '快照保存位置', pathLoading: '正在读取位置…', open: '更改存放位置', defaultPath: '默认', version: '版本', root: '扫描目录', rootFolder: '根目录', net: '净变化', files: '文件变化', noFiles: '此目录没有对应的变化文件', rename: '重命名', move: '移动到文件夹', remove: '删除', chooseOld: '设为左侧基准', chooseNew: '设为右侧当前', noSnapshots: '还没有快照。选择一个文件夹开始扫描。', emptyFolder: '此文件夹还没有快照', confirmDelete: '确定删除快照“{name}”？此操作无法撤销。', namePrompt: '输入快照名称', categoryPrompt: '输入分类名称', promptCancel: '取消', promptConfirm: '确定', clearCompare: '清空选择', code: '中', scanStarted: '正在扫描所选目录…', scanDone: '快照已创建', noChanges: '两个快照之间没有新增或删除', sameRoot: '请选择来自同一根目录的快照', selectTwo: '请分别选择基准和当前快照', themeDark: '已切换到深色主题', themeLight: '已切换到浅色主题', categoryNone: '未分类', fileMissing: '该文件已不存在，正在打开其所在目录。', expand: '展开', collapse: '收起', explorer: '在资源管理器中打开', logTitle: '日志', logDesc: '仅保存在本机，最多显示最近 200 条', refresh: '刷新', clear: '清空日志', scanning: '正在扫描', today: '今天', yesterday: '昨天', daysAgo: '天前', versionLoading: '正在读取…', countSnapshots: '个快照', bars: '变化大小' },
+      en: { title: 'TraceDisk · File Compare', hint: 'Choose a folder, create snapshots, and review changes', scan: 'New scan', compare: 'Compare', snapA: 'Choose baseline snapshot', snapB: 'Choose current snapshot', before: 'Baseline', after: 'Current', start: 'Compare', directory: 'Folders', search: 'Search', searchPlaceholder: 'Search folders or files', sort: 'Sort', filter: 'Filter', all: 'All', addedOnly: 'Added', removedOnly: 'Removed', name: 'Name', added: 'Added', removed: 'Removed', empty: 'No snapshots yet', emptyHint: 'Choose a disk or folder with “New scan”<br />Create two snapshots to view folder changes', snapshotTitle: 'Snapshots', snapshotDesc: 'Organize snapshots in folders and choose two scans to compare', snapshotNew: '＋ New snapshot', folders: 'Folders', allFolders: 'All folders', createFolder: 'New folder', folderPrompt: 'Enter a folder name', folderLabel: 'Move to folder', folderDelete: 'Delete folder', confirmFolderDelete: 'Delete folder “{name}”? Its snapshots will move to the root folder.', settingsTitle: 'Settings', settingsDesc: 'Adjust display and local preferences', themeTitle: 'Theme', themeDesc: 'Switch between light and dark workspace', langTitle: 'Language', langDesc: 'Switch between Chinese and English', pathTitle: 'Snapshot location', pathLoading: 'Loading location…', open: 'Change location', defaultPath: 'Default', version: 'Version', root: 'Scanned folder', rootFolder: 'Root', net: 'Net change', files: 'File changes', noFiles: 'No matching changed files in this folder', rename: 'Rename', move: 'Move to folder', remove: 'Delete', chooseOld: 'Set as left baseline', chooseNew: 'Set as right current', noSnapshots: 'No snapshots yet. Choose a folder to scan.', emptyFolder: 'No snapshots in this folder yet', confirmDelete: 'Delete snapshot “{name}”? This cannot be undone.', namePrompt: 'Enter a snapshot name', categoryPrompt: 'Enter a category name', promptCancel: 'Cancel', promptConfirm: 'Confirm', clearCompare: 'Clear selection', code: 'EN', scanStarted: 'Scanning the selected folder…', scanDone: 'Snapshot created', noChanges: 'No files were added or removed between these snapshots', sameRoot: 'Choose snapshots from the same root folder', selectTwo: 'Choose a baseline and current snapshot', themeDark: 'Dark theme enabled', themeLight: 'Light theme enabled', categoryNone: 'Uncategorized', fileMissing: 'This file no longer exists. Opening its containing folder.', expand: 'Expand', collapse: 'Collapse', explorer: 'Open in Explorer', logTitle: 'Logs', logDesc: 'Stored locally; showing the latest 200 entries', refresh: 'Refresh', clear: 'Clear logs', scanning: 'Scanning', today: 'Today', yesterday: 'Yesterday', daysAgo: 'days ago', versionLoading: 'Loading…', countSnapshots: 'snapshots', bars: 'Change size' }
+    };
+    Object.assign(langText.zh, {
+      emptyHint: '点击右上角「新建扫描」选择磁盘或文件夹<br />选择一个快照可浏览目录，选择两个可对比变化',
+      selectHint: '选择一个快照可浏览目录，选择两个快照可对比变化。',
+      snapshotDesc: '用文件夹整理快照；选择一个浏览目录，或选择两个查看变化',
+      selectTwo: '请选择一个快照浏览目录，或选择两个快照查看变化',
+      changed: '大小变化',
+      noChanges: '两个快照之间没有新增、删除或大小变化',
+      copyPath: '复制路径'
+    });
+    Object.assign(langText.en, {
+      emptyHint: 'Choose a disk or folder with “New scan”<br />Select one snapshot to browse its folders, or two to compare changes',
+      selectHint: 'Select one snapshot to browse its folders, or two snapshots to compare changes.',
+      snapshotDesc: 'Organize snapshots in folders; select one to browse or two to compare',
+      selectTwo: 'Select one snapshot to browse, or two to compare',
+      changed: 'Size changed',
+      noChanges: 'There are no added, removed, or size-changed files between these snapshots',
+      copyPath: 'Copy path'
+    });
+    Object.assign(langText.zh, {
+      themeLightOption: '浅色', themeDarkOption: '深色', themeSystemOption: '跟随系统',
+      snapshotSortLabel: '时间', snapshotDriveLabel: '盘符', newest: '最新优先', oldest: '最早优先', driveAll: '全部盘符', noDriveSnapshots: '此盘符下没有快照', themeSystem: '已跟随系统主题'
+    });
+    Object.assign(langText.en, {
+      themeLightOption: 'Light', themeDarkOption: 'Dark', themeSystemOption: 'Follow system',
+      snapshotSortLabel: 'Time', snapshotDriveLabel: 'Drive', newest: 'Newest first', oldest: 'Oldest first', driveAll: 'All drives', noDriveSnapshots: 'No snapshots on this drive', themeSystem: 'Following system theme'
+    });
+    let currentLocale = localStorage.getItem('tracedisk-locale') || 'zh';
+    let snapshots = [];
+    let snapshotFolders = [];
+    let comparison = null;
+    let singleSnapshot = false;
+    let activeFiles = [];
+    let contextTarget = null;
+    let snapshotOpenFolders = new Set();
+    const expanded = new Set();
+    let directoryTreeCache = null;
+    const t = () => langText[currentLocale];
+    let activePromptResolve = null;
+    const finishTextPrompt = value => {
+      closeModal('textPromptModal');
+      const resolve = activePromptResolve;
+      activePromptResolve = null;
+      resolve?.(value);
+    };
+    const askText = ({ title, label, value = '' }) => new Promise(resolve => {
+      activePromptResolve = resolve;
+      $('textPromptTitle').textContent = title;
+      $('textPromptLabel').textContent = label;
+      $('textPromptInput').value = value;
+      openModal('textPromptModal');
+      setTimeout(() => {
+        $('textPromptInput').focus();
+        $('textPromptInput').select();
+      }, 0);
+    });
+    const formatSize = bytes => {
+      if (!bytes) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const tier = Math.min(Math.floor(Math.log(Math.abs(bytes)) / Math.log(1024)), units.length - 1);
+      const value = bytes / (1024 ** tier);
+      return `${value >= 100 || tier === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[tier]}`;
+    };
+    const formatByteDelta = bytes => `${bytes > 0 ? '+' : bytes < 0 ? '−' : ''}${formatSize(Math.abs(bytes))}`;
+    const relativeAge = value => {
+      const timestamp = new Date(value).getTime();
+      if (!Number.isFinite(timestamp)) return '';
+      const elapsed = Math.max(0, Date.now() - timestamp);
+      const minute = Math.floor(elapsed / 60000);
+      const hour = Math.floor(elapsed / 3600000);
+      const days = Math.floor(elapsed / 86400000);
+      const date = new Date(timestamp);
+      const now = new Date();
+      const sameDay = date.toDateString() === now.toDateString();
+      const yesterdayDate = new Date(now);
+      yesterdayDate.setDate(now.getDate() - 1);
+      const yesterday = date.toDateString() === yesterdayDate.toDateString();
+      if (elapsed < 60000) return currentLocale === 'en' ? 'Just now' : '刚刚';
+      if (minute < 60) return currentLocale === 'en' ? `${minute} min ago` : `${minute}分钟前`;
+      if (sameDay && hour < 12) return currentLocale === 'en' ? `${hour} ${hour === 1 ? 'hour' : 'hours'} ago` : `${hour}小时前`;
+      if (sameDay) return t().today;
+      if (yesterday) return t().yesterday;
+      if (days < 7) return currentLocale === 'en' ? `${days} ${t().daysAgo}` : `${days}${t().daysAgo}`;
+      return date.toLocaleDateString(currentLocale === 'en' ? 'en-US' : 'zh-CN');
+    };
+    const updateScanProgress = payload => {
+      const scanned = Number(payload?.scanned || 0);
+      const total = Number(payload?.total || 0);
+      const percent = Math.max(0, Math.min(100, Number(payload?.percent || 0)));
+      const knownTotal = total > 0;
+      $('scanProgress').classList.remove('hidden');
+      $('scanProgressFill').classList.toggle('indeterminate', !knownTotal);
+      $('scanProgressFill').style.width = knownTotal ? `${percent}%` : '';
+      $('scanProgressPercent').textContent = knownTotal ? `${percent}%` : scanned.toLocaleString();
+      $('scanProgressLabel').textContent = knownTotal ? `${t().scanning} · ${scanned}/${total}` : `${t().scanning} · ${scanned.toLocaleString()}`;
+    };
+    listen('scan-progress', event => updateScanProgress(event.payload));
+
+    /* 主题风格配色切换管理（绑定在左上角 .brand-mark） */
+    const styleI18n = {
+      zh: {
+        tooltip: '主题风格',
+        modalTitle: '主题风格与色彩方案',
+        modalDesc: '点击切换工作台视觉配色，全部方案均自动适配浅色与深色模式',
+        modeLabel: '明暗外观模式',
+        active: '✓ 当前使用',
+        choose: '选择',
+        titles: {
+          default: '钛金靛蓝 · Indigo',
+          arctic: '极地冰川 · Arctic Cyan',
+          dune: '暖砂琥珀 · Dune Amber',
+          cyber: '赛博黑曜 · Cyber Matrix'
+        },
+        descs: {
+          default: '冷钛银白画布配以电光靛蓝与翡翠绿，现代均衡的精密仪器质感',
+          arctic: '冰川蓝灰底色搭配深海午夜导航坞与科技青，冷静通透的实验室风格',
+          dune: '护眼暖砂象牙白配浓缩咖啡坞与工业熔岩橙，温润耐看的复古硬件风',
+          cyber: '黑曜石矩阵配以激光电光紫、赛博荧光绿与洋红，高对比度极客终端风'
+        }
+      },
+      en: {
+        tooltip: 'Theme Style',
+        modalTitle: 'Theme Style & Color Palette',
+        modalDesc: 'Switch workspace color schemes; all presets adapt to light and dark modes',
+        modeLabel: 'Appearance Mode',
+        active: '✓ Active',
+        choose: 'Select',
+        titles: {
+          default: 'Indigo Titanium',
+          arctic: 'Arctic Cyan',
+          dune: 'Dune Amber',
+          cyber: 'Cyber Matrix'
+        },
+        descs: {
+          default: 'Cool titanium canvas with electric indigo and emerald accents',
+          arctic: 'Glacier blue-grey with deep navy dock and precision cyan highlights',
+          dune: 'Warm limestone ivory with espresso dock and industrial amber orange',
+          cyber: 'Obsidian matrix with laser purple, neon mint, and crimson accents'
+        }
+      }
+    };
+    const refreshStyleModalUI = () => {
+      const currentStyle = localStorage.getItem('tracedisk-style') || 'default';
+      const currentThemeMode = localStorage.getItem('tracedisk-theme') || 'light';
+      const copy = styleI18n[currentLocale] || styleI18n.zh;
+      $('brandMarkBtn').dataset.tooltip = copy.tooltip;
+      $('brandMarkBtn').title = copy.tooltip;
+      $('brandMarkBtn').setAttribute('aria-label', copy.tooltip);
+      $('styleModalTitle').textContent = copy.modalTitle;
+      $('styleModalDesc').textContent = copy.modalDesc;
+      $('styleModeLabel').textContent = copy.modeLabel;
+      document.querySelectorAll('.style-card').forEach(card => {
+        const key = card.dataset.styleChoice;
+        const isSelected = key === currentStyle;
+        card.classList.toggle('active', isSelected);
+        const titleEl = card.querySelector('[data-i18n-title]');
+        const descEl = card.querySelector('[data-i18n-desc]');
+        const badgeEl = card.querySelector('.style-card-badge');
+        if (titleEl && copy.titles[key]) titleEl.textContent = copy.titles[key];
+        if (descEl && copy.descs[key]) descEl.textContent = copy.descs[key];
+        if (badgeEl) badgeEl.textContent = isSelected ? copy.active : copy.choose;
+      });
+      const modeTexts = [t().themeLightOption, t().themeDarkOption, t().themeSystemOption];
+      document.querySelectorAll('[data-theme-pill]').forEach((pill, index) => {
+        pill.textContent = modeTexts[index];
+        pill.classList.toggle('active', pill.dataset.themePill === currentThemeMode);
+      });
+    };
+    const applyStylePreset = (styleName, notify = false) => {
+      if (!['default', 'arctic', 'dune', 'cyber'].includes(styleName)) styleName = 'default';
+      localStorage.setItem('tracedisk-style', styleName);
+      if (styleName === 'default') delete document.documentElement.dataset.style;
+      else document.documentElement.dataset.style = styleName;
+      refreshStyleModalUI();
+      if (notify) {
+        const copy = styleI18n[currentLocale] || styleI18n.zh;
+        toast(`${copy.tooltip}: ${copy.titles[styleName]}`);
+      }
+    };
+
+    const applyLocale = () => {
+      const text = t();
+      document.documentElement.lang = currentLocale === 'en' ? 'en' : 'zh-CN';
+      document.documentElement.dataset.locale = currentLocale;
+      $('compareLabel').textContent = currentLocale === 'en' ? 'Compare' : '对比';
+      $('directoryTitle').textContent = currentLocale === 'en' ? 'Folders' : '目录';
+      $('headName').textContent = text.name;
+      $('headBars').textContent = text.bars;
+      $('scanStatus').textContent = currentLocale === 'en' ? 'Scanning' : '正在扫描';
+      const navLabels = currentLocale === 'en' ? ['Folders', 'Snapshots'] : ['目录', '快照'];
+      document.querySelectorAll('.nav-btn').forEach((button, index) => button.title = navLabels[index]);
+      $('settingsBtn').title = currentLocale === 'en' ? 'Settings' : '设置';
+      const windowLabels = currentLocale === 'en'
+        ? { minimize: 'Minimize', maximize: 'Maximize', restore: 'Restore', close: 'Close' }
+        : { minimize: '最小化', maximize: '最大化', restore: '还原', close: '关闭' };
+      $('windowMaximize').dataset.maximized = $('windowMaximize').dataset.maximized || 'false';
+      [['windowMinimize', windowLabels.minimize], ['windowMaximize', $('windowMaximize').dataset.maximized === 'true' ? windowLabels.restore : windowLabels.maximize], ['windowClose', windowLabels.close]].forEach(([id, label]) => {
+        $(id).title = label;
+        $(id).setAttribute('aria-label', label);
+      });
+      $('appTitle').textContent = text.title;
+      $('appHint').textContent = text.hint;
+      $('newScan').lastChild.textContent = ` ${text.scan}`;
+      $('compareBtn').textContent = text.start;
+      $('clearCompareBtn').textContent = text.clearCompare;
+      $('snapshotTitle').textContent = text.snapshotTitle;
+      $('snapshotDesc').textContent = text.snapshotDesc;
+      $('snapshotNew').textContent = text.snapshotNew;
+      $('createFolderLabel').textContent = text.createFolder;
+      $('snapALabel').textContent = text.before;
+      $('snapBLabel').textContent = text.after;
+      $('snapA').setAttribute('aria-label', text.snapA);
+      $('snapB').setAttribute('aria-label', text.snapB);
+      $('settingsTitle').textContent = text.settingsTitle;
+      $('settingsDesc').textContent = text.settingsDesc;
+      $('settingThemeTitle').textContent = text.themeTitle;
+      $('settingThemeDesc').textContent = text.themeDesc;
+      $('themeSelect').setAttribute('aria-label', text.themeTitle);
+      [...$('themeSelect').options].forEach((option, index) => option.textContent = [text.themeLightOption, text.themeDarkOption, text.themeSystemOption][index]);
+      refreshSelectUI($('themeSelect'));
+      $('settingLangTitle').textContent = text.langTitle;
+      $('settingLangDesc').textContent = text.langDesc;
+      $('settingPathTitle').textContent = text.pathTitle;
+      $('settingVersionTitle').textContent = text.version;
+      $('changePathBtn').textContent = text.open;
+      $('defaultPathBtn').textContent = text.defaultPath;
+      $('settingLogTitle').textContent = text.logTitle;
+      $('settingLogDesc').textContent = text.logDesc;
+      $('refreshLogBtn').textContent = text.refresh;
+      $('clearLogBtn').textContent = text.clear;
+      $('textPromptCancel').textContent = text.promptCancel;
+      $('textPromptConfirm').textContent = text.promptConfirm;
+      $('scanProgressLabel').textContent = text.scanning;
+      $('contextExpand').textContent = text.expand;
+      $('contextExplorer').textContent = text.explorer;
+      $('contextCopyPath').textContent = text.copyPath;
+      $('rootLabel').textContent = text.root;
+      $('addedLabel').textContent = text.added;
+      $('removedLabel').textContent = text.removed;
+      $('netLabel').textContent = text.net;
+      $('directorySearch').placeholder = text.searchPlaceholder;
+      $('directorySearch').setAttribute('aria-label', text.searchPlaceholder);
+      $('searchBtn').title = text.search;
+      $('searchBtn').querySelector('span').textContent = text.search;
+      $('sortSelect').closest('label').title = text.sort;
+      $('sortSelect').closest('label').querySelector('span').textContent = text.sort;
+      $('filterSelect').closest('label').title = text.filter;
+      $('filterSelect').closest('label').querySelector('span').textContent = text.filter;
+      const setOptions = (id, labels) => [...$(id).options].forEach((option, index) => option.textContent = labels[index]);
+      setOptions('sortSelect', [text.name, text.added, text.removed]);
+      setOptions('filterSelect', [text.all, text.addedOnly, text.removedOnly]);
+      $('snapshotSortLabel').textContent = text.snapshotSortLabel;
+      $('snapshotDriveLabel').textContent = text.snapshotDriveLabel;
+      [...$('snapshotSort').options].forEach((option, index) => option.textContent = [text.newest, text.oldest][index]);
+      refreshSelectUI($('snapshotSort'));
+      updateDriveFilterOptions();
+      updateSnapshotSelects();
+      refreshSelectUI($('sortSelect'));
+      refreshSelectUI($('filterSelect'));
+      $('empty-title').textContent = text.empty;
+      $('empty-hint').innerHTML = text.emptyHint;
+      localeCode.textContent = text.code;
+      $('localeToggle').title = currentLocale === 'en' ? 'Switch to Chinese' : '切换到英文';
+      $('localeToggle').setAttribute('aria-label', $('localeToggle').title);
+      localStorage.setItem('tracedisk-locale', currentLocale);
+      refreshStyleModalUI();
+      renderSnapshots();
+      if (comparison) renderTree();
+    };
+    const snapshotById = id => snapshots.find(item => item.id === id);
+    const snapshotDrive = path => cleanPath(path).match(/^([a-z]:)(?:[\\/]|$)/i)?.[1].toUpperCase() || '';
+    const updateDriveFilterOptions = () => {
+      const select = $('snapshotDriveFilter');
+      const selected = select.value || 'all';
+      const drives = [...new Set(snapshots.map(item => snapshotDrive(item.rootPath)).filter(Boolean))].sort();
+      select.replaceChildren(new Option(t().driveAll, 'all'), ...drives.map(drive => new Option(drive, drive)));
+      select.value = drives.includes(selected) ? selected : 'all';
+      refreshSelectUI(select);
+    };
+    const selectedIds = () => [$('snapA').value, $('snapB').value];
+    const snapshotOrderHint = () => currentLocale === 'en'
+      ? 'The baseline on the left must be earlier than the current snapshot on the right'
+      : '左侧基准快照必须早于右侧当前快照';
+    const updateSnapshotSelects = (keep = true) => {
+      const [oldId, newId] = selectedIds();
+      const orderedSnapshots = [...snapshots].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      for (const [id, placeholder] of [['snapA', t().snapA], ['snapB', t().snapB]]) {
+        const select = $(id);
+        select.replaceChildren(new Option(placeholder, ''));
+        orderedSnapshots.forEach(item => select.add(new Option(`${item.name}  ·  ${relativeAge(item.createdAt)}`, item.id)));
+      }
+      if (keep && snapshots.some(item => item.id === oldId)) $('snapA').value = oldId;
+      if (keep && snapshots.some(item => item.id === newId)) $('snapB').value = newId;
+      refreshSelectUI($('snapA'));
+      refreshSelectUI($('snapB'));
+    };
+    const loadSnapshots = async () => {
+      [snapshots, snapshotFolders] = await Promise.all([invoke('list_snapshots'), invoke('list_snapshot_folders')]);
+      snapshots = snapshots.map(item => ({ ...item, rootPath: cleanPath(item.rootPath) }));
+      updateDriveFilterOptions();
+      updateSnapshotSelects();
+      renderSnapshots();
+      const oldId = $('snapA').value;
+      const newId = $('snapB').value;
+      const oldSnap = snapshotById(oldId);
+      const newSnap = snapshotById(newId);
+      if (oldSnap && newSnap && oldSnap.rootPath.toLowerCase() !== newSnap.rootPath.toLowerCase()) {
+        comparison = null;
+        showEmpty();
+      }
+      $('empty-title').textContent = snapshots.length ? t().selectTwo : t().empty;
+      $('empty-hint').innerHTML = snapshots.length ? t().selectHint : t().emptyHint;
+    };
+    const showEmpty = () => {
+      singleSnapshot = false;
+      directoryTreeCache = null;
+      $('empty').classList.remove('hidden');
+      $('testView').classList.add('hidden');
+      $('testView').classList.remove('single-snapshot');
+      $('overviewSummary').classList.add('hidden');
+      $('overviewSummary').classList.remove('single-snapshot');
+      $('empty-title').textContent = snapshots.length ? t().selectTwo : t().empty;
+      $('empty-hint').innerHTML = snapshots.length ? t().selectHint : t().emptyHint;
+    };
+    const runScan = async () => {
+      if (runScan.active) return;
+      runScan.active = true;
+      $('newScan').disabled = true;
+      $('snapshotNew').disabled = true;
+      $('scanStatus').classList.remove('hidden');
+      updateScanProgress({ scanned: 0, total: 0, percent: 0 });
+      $('appHint').textContent = currentLocale === 'en' ? 'Scanning the selected folder…' : '正在扫描所选目录…';
+      try {
+        const rootPath = cleanPath(await invoke('select_directory'));
+        if (!rootPath) return;
+        toast(t().scanStarted);
+        const previous = snapshots.filter(item => item.rootPath.toLowerCase() === rootPath.toLowerCase()).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+        const created = await invoke('create_snapshot', { rootPath, name: null });
+        await loadSnapshots();
+        $('snapA').value = previous?.id || '';
+        $('snapB').value = created.id;
+         refreshSelectUI($('snapA'));
+         refreshSelectUI($('snapB'));
+        comparison = null;
+        showEmpty();
+        closeModal('snapshotModal');
+        toast(t().scanDone);
+        if (previous) await compareSelected();
+      } catch (error) { toast(message(error)); }
+      finally {
+        runScan.active = false;
+        $('newScan').disabled = false;
+        $('snapshotNew').disabled = false;
+        $('scanStatus').classList.add('hidden');
+        $('scanProgress').classList.add('hidden');
+        $('appHint').textContent = t().hint;
+      }
+    };
+    const compareSelected = async () => {
+      const [oldId, newId] = selectedIds();
+      if ((!oldId && !newId) || (oldId && oldId === newId)) return toast(t().selectTwo);
+      if (!oldId || !newId) {
+        $('compareBtn').disabled = true;
+        try {
+          const data = await invoke('get_snapshot_contents', { id: oldId || newId });
+          data.info.rootPath = cleanPath(data.info.rootPath);
+          comparison = {
+            oldSnapshot: data.info,
+            newSnapshot: data.info,
+            addedBytes: 0,
+            removedBytes: 0,
+            addedFiles: data.records.map(file => ({ path: file.relativePath, sizeBytes: file.sizeBytes, status: 'added' })),
+            removedFiles: [],
+            changedFiles: [],
+            directories: data.directories || []
+          };
+          singleSnapshot = true;
+          expanded.clear();
+          expanded.add('');
+          renderTree();
+        } catch (error) { toast(message(error)); }
+        finally { $('compareBtn').disabled = false; }
+        return;
+      }
+      const oldSnap = snapshotById(oldId);
+      const newSnap = snapshotById(newId);
+      if (oldSnap?.rootPath.toLowerCase() !== newSnap?.rootPath.toLowerCase()) return toast(t().sameRoot);
+      if (Date.parse(oldSnap.createdAt) >= Date.parse(newSnap.createdAt)) return toast(snapshotOrderHint());
+      $('compareBtn').disabled = true;
+      try {
+        comparison = await invoke('compare_snapshots', { oldId, newId });
+        singleSnapshot = false;
+        comparison.oldSnapshot.rootPath = cleanPath(comparison.oldSnapshot.rootPath);
+        comparison.newSnapshot.rootPath = cleanPath(comparison.newSnapshot.rootPath);
+        expanded.clear();
+        expanded.add('');
+        comparison.changedFiles ||= [];
+        if (comparison.addedFiles.length || comparison.removedFiles.length || comparison.changedFiles.length) renderTree();
+        else {
+          showEmpty();
+          $('empty-title').textContent = t().noChanges;
+          $('empty-hint').textContent = currentLocale === 'en' ? 'The selected snapshots contain no added or removed files.' : '所选快照的目录内容没有新增或删除。';
+        }
+        if (!comparison.addedFiles.length && !comparison.removedFiles.length && !comparison.changedFiles.length) toast(t().noChanges);
+      } catch (error) { toast(message(error)); }
+      finally { $('compareBtn').disabled = false; }
+    };
+    const buildDirectoryTree = () => {
+      if (directoryTreeCache?.comparison === comparison && directoryTreeCache.singleSnapshot === singleSnapshot) {
+        return directoryTreeCache.value;
+      }
+      const rootName = comparison.newSnapshot.rootPath.split(/[\\/]/).filter(Boolean).at(-1) || comparison.newSnapshot.rootPath;
+      const root = { name: rootName, relative: '', added: 0, removed: 0, changed: 0, children: new Map(), files: [] };
+      const roots = new Map([['', root]]);
+      const allNodes = [root];
+      const addPath = (file, status) => {
+        const parts = file.path.split(/[\\/]/).filter(Boolean);
+        let siblings = root.children;
+        let parent = root;
+        const value = status === 'changed'
+          ? (file.currentSizeBytes || file.sizeBytes) - (file.previousSizeBytes || 0)
+          : file.sizeBytes;
+        root[status] += value;
+        let relative = '';
+        for (const part of parts.slice(0, -1)) {
+          relative = relative ? `${relative}\\${part}` : part;
+          const key = relative.toLowerCase();
+          let node = siblings.get(key);
+          if (!node) {
+            node = { name: part, relative, added: 0, removed: 0, changed: 0, children: new Map(), files: [] };
+            siblings.set(key, node);
+            allNodes.push(node);
+          }
+           node[status] += value;
+          parent = node;
+          siblings = node.children;
+        }
+        parent.files.push({ ...file, status });
+      };
+      comparison.addedFiles.forEach(file => addPath(file, 'added'));
+      comparison.removedFiles.forEach(file => addPath(file, 'removed'));
+      comparison.changedFiles.forEach(file => addPath(file, 'changed'));
+      if (singleSnapshot) {
+        (comparison.directories || []).forEach(path => {
+          let siblings = root.children;
+          let relative = '';
+          for (const part of path.split(/[\\/]/).filter(Boolean)) {
+            relative = relative ? `${relative}\\${part}` : part;
+            const key = relative.toLowerCase();
+            let node = siblings.get(key);
+            if (!node) {
+              node = { name: part, relative, added: 0, removed: 0, changed: 0, children: new Map(), files: [] };
+              siblings.set(key, node);
+              allNodes.push(node);
+            }
+            siblings = node.children;
+          }
+        });
+      }
+      const maximum = allNodes.reduce((largest, node) => Math.max(largest, node.added, node.removed, Math.abs(node.added - node.removed + (node.changed || 0))), 1);
+      const value = { roots, allNodes, maximum };
+      directoryTreeCache = { comparison, singleSnapshot, value };
+      return value;
+    };
+    const renderTree = () => {
+      $('empty').classList.add('hidden');
+      $('testView').classList.remove('hidden');
+      $('testView').classList.toggle('single-snapshot', singleSnapshot);
+      $('overviewSummary').classList.remove('hidden');
+      $('overviewSummary').classList.toggle('single-snapshot', singleSnapshot);
+      $('rootPath').textContent = comparison.newSnapshot.rootPath;
+      $('rootPath').title = comparison.newSnapshot.rootPath;
+      $('addedTotal').textContent = `+${formatSize(comparison.addedBytes)}`;
+      $('removedTotal').textContent = `−${formatSize(comparison.removedBytes)}`;
+      const resizedBytes = (comparison.changedFiles || []).reduce((sum, file) => sum + (file.currentSizeBytes ?? file.sizeBytes) - (file.previousSizeBytes ?? 0), 0);
+      const net = comparison.addedBytes - comparison.removedBytes + resizedBytes;
+      $('netTotal').textContent = `${net > 0 ? '+' : net < 0 ? '−' : ''}${formatSize(Math.abs(net))}`;
+      const { roots, maximum } = buildDirectoryTree();
+       const changeVisual = (addedBytes, removedBytes, isFolder = false, kindOverride = '', changedBytes = 0) => {
+        const visual = document.createElement('div');
+        visual.className = isFolder ? 'visual folder-visual' : 'visual';
+        const kind = kindOverride || (isFolder
+          ? (addedBytes >= removedBytes ? 'added' : 'removed')
+          : (addedBytes ? 'added' : 'removed'));
+         const bytes = kind === 'added' ? addedBytes : kind === 'removed' ? removedBytes : changedBytes;
+        const lane = document.createElement('span');
+        lane.className = 'visual-lane';
+        const fill = document.createElement('span');
+        fill.className = `fill ${kind}`;
+        fill.style.width = `${bytes ? bytes / maximum * 100 : 0}%`;
+        lane.append(fill);
+        visual.append(lane);
+        return visual;
+      };
+      const query = $('directorySearch').value.trim().toLowerCase();
+      const mode = singleSnapshot ? 'all' : $('filterSelect').value;
+      const sort = singleSnapshot ? 'name' : $('sortSelect').value;
+      const sorted = map => [...map.values()].sort((a, b) => sort === 'added' ? b.added - a.added || a.name.localeCompare(b.name) : sort === 'removed' ? b.removed - a.removed || a.name.localeCompare(b.name) : a.name.localeCompare(b.name));
+      const hasMatch = node => {
+        const own = `${node.name} ${comparison.newSnapshot.rootPath}\\${node.relative}`.toLowerCase().includes(query);
+        return own || node.files.some(file => file.path.toLowerCase().includes(query)) || [...node.children.values()].some(hasMatch);
+      };
+      const renderNode = (node, depth, container) => {
+        const visibleByFilter = mode === 'added' ? node.added > 0 : mode === 'removed' ? node.removed > 0 : true;
+        const visibleByQuery = !query || hasMatch(node);
+        const hasChildren = node.children.size || node.files.length;
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.dataset.type = 'folder';
+        row.dataset.path = joinWindowsPath(comparison.newSnapshot.rootPath, node.relative);
+        row.dataset.relative = node.relative;
+        row.tabIndex = 0;
+        const folderDelta = node.added - node.removed + (node.changed || 0);
+        row.title = `${row.dataset.path}\n${t().changed}: ${formatByteDelta(folderDelta)}\n${t().added}: ${formatSize(node.added)}\n${t().removed}: ${formatSize(node.removed)}`;
+        const expandedNow = expanded.has(node.relative) || (query && hasMatch(node));
+        const indent = document.createElement('div');
+        indent.className = 'name';
+        indent.style.paddingLeft = `${depth * 18}px`;
+        const toggle = document.createElement('span');
+        toggle.className = `chev${hasChildren ? ' toggle' : ''}`;
+        toggle.textContent = hasChildren ? (expandedNow ? '⌄' : '›') : '';
+        const folder = document.createElement('span');
+        folder.className = 'folder';
+        const path = document.createElement('div');
+        path.className = 'path';
+        const name = document.createElement('strong');
+        name.textContent = node.name;
+        path.append(name);
+        indent.append(toggle, folder, path);
+        const amount = (kind, bytes) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `amount ${bytes ? kind : 'empty'}`;
+           button.dataset.action = bytes && kind !== 'changed' ? 'files' : '';
+          button.dataset.status = kind;
+          button.dataset.relative = node.relative;
+          button.textContent = bytes ? `${kind === 'added' ? '+' : '−'}${formatSize(bytes)}` : '—';
+           button.setAttribute('aria-label', `${kind === 'added' ? t().added : kind === 'removed' ? t().removed : t().changed}: ${formatSize(bytes)}`);
+          button.disabled = !bytes;
+          return button;
+        };
+        const folderKind = folderDelta > 0 ? 'added' : folderDelta < 0 ? 'removed' : 'changed';
+        const folderBytes = Math.abs(folderDelta);
+        const arrow = document.createElement('div');
+        arrow.className = 'arrow';
+        arrow.textContent = '›';
+         const folderAmount = amount(folderKind, folderBytes);
+         folderAmount.className = `amount ${folderKind} folder-amount`;
+         folderAmount.textContent = formatByteDelta(folderDelta);
+         folderAmount.setAttribute('aria-label', `${t().changed}: ${formatByteDelta(folderDelta)}`);
+         folderAmount.dataset.action = '';
+         folderAmount.disabled = true;
+         row.append(indent, changeVisual(Math.max(folderDelta, 0), Math.max(-folderDelta, 0), true, folderKind, folderBytes), folderAmount, arrow);
+        row.classList.toggle('hidden', !(visibleByFilter && visibleByQuery));
+        container.append(row);
+        if (hasChildren && expandedNow) {
+          const subtree = document.createElement('div');
+          subtree.className = 'subtree';
+          sorted(node.children).forEach(child => renderNode(child, depth + 1, subtree));
+          [...node.files].sort((a, b) => a.path.localeCompare(b.path)).forEach(file => {
+            const fileRow = document.createElement('div');
+            fileRow.className = 'row file-row';
+            fileRow.dataset.type = 'file';
+            const fileRoot = file.status === 'removed' ? comparison.oldSnapshot.rootPath : comparison.newSnapshot.rootPath;
+            fileRow.dataset.path = joinWindowsPath(fileRoot, file.path);
+            fileRow.dataset.relative = file.path;
+            fileRow.dataset.status = file.status;
+            fileRow.tabIndex = 0;
+            const previousSize = file.previousSizeBytes ?? 0;
+            const currentSize = file.currentSizeBytes ?? file.sizeBytes;
+            const signedDelta = file.status === 'added' ? file.sizeBytes : file.status === 'removed' ? -file.sizeBytes : currentSize - previousSize;
+            const fileKind = signedDelta > 0 ? 'added' : signedDelta < 0 ? 'removed' : 'changed';
+            const statusLabel = file.status === 'added' ? t().added : file.status === 'removed' ? t().removed : t().changed;
+            fileRow.title = file.status === 'changed'
+              ? `${fileRow.dataset.path}\n${statusLabel}: ${formatByteDelta(signedDelta)}\n${formatSize(previousSize)} → ${formatSize(currentSize)}`
+              : `${fileRow.dataset.path}\n${statusLabel}: ${formatSize(file.sizeBytes)}`;
+            const fileIndent = document.createElement('div');
+            fileIndent.className = 'name';
+            fileIndent.style.paddingLeft = `${(depth + 1) * 18}px`;
+            const spacer = document.createElement('span');
+            spacer.className = 'chev';
+            const fileIcon = document.createElement('span');
+            fileIcon.className = 'file-icon';
+            const filePath = document.createElement('div');
+            filePath.className = 'path';
+            const fileName = document.createElement('strong');
+            fileName.textContent = file.path.split(/[\\/]/).at(-1) || file.path;
+            filePath.append(fileName);
+             if (!singleSnapshot) {
+               const status = document.createElement('span');
+               status.className = `file-status ${file.status}`;
+                status.textContent = file.status === 'added' ? t().added : file.status === 'removed' ? t().removed : t().changed;
+               status.setAttribute('aria-label', status.textContent);
+               filePath.append(status);
+             }
+            fileIndent.append(spacer, fileIcon, filePath);
+             const fileDelta = Math.abs(signedDelta);
+             const fileVisual = changeVisual(Math.max(signedDelta, 0), Math.max(-signedDelta, 0), false, fileKind, fileDelta);
+            const fileAmount = document.createElement('span');
+            fileAmount.className = `amount ${file.status === 'changed' ? fileKind : file.status}`;
+             fileAmount.textContent = file.status === 'changed'
+               ? formatByteDelta(signedDelta)
+               : `${file.status === 'added' ? '+' : '−'}${formatSize(file.sizeBytes)}`;
+            const fileArrow = document.createElement('div');
+            fileArrow.className = 'arrow';
+            fileArrow.textContent = '›';
+            fileRow.append(fileIndent, fileVisual, fileAmount, fileArrow);
+            fileRow.classList.toggle('hidden', !(file.status === mode || mode === 'all') || (query && !file.path.toLowerCase().includes(query)));
+            subtree.append(fileRow);
+          });
+          container.append(subtree);
+        }
+      };
+      const tree = $('treeScroll');
+      tree.replaceChildren();
+      sorted(roots).forEach(node => renderNode(node, 0, tree));
+    };
+    const showFiles = (relative, status) => {
+      const prefix = relative ? (relative.toLowerCase().endsWith('\\') ? relative.toLowerCase() : `${relative.toLowerCase()}\\`) : '';
+      activeFiles = comparison[status === 'added' ? 'addedFiles' : 'removedFiles'].filter(file => !prefix || file.path.toLowerCase().startsWith(prefix));
+      const title = relative ? relative.split(/[\\/]/).at(-1) : comparison.newSnapshot.rootPath;
+      $('filesTitle').textContent = `${title} · ${status === 'added' ? t().added : t().removed}`;
+      $('filesDesc').textContent = t().files;
+      const list = $('fileList');
+      list.replaceChildren();
+      if (!activeFiles.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-list';
+        empty.textContent = t().noFiles;
+        list.append(empty);
+      }
+      activeFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        const path = document.createElement('button');
+        path.type = 'button';
+        path.dataset.action = 'open-file';
+        path.dataset.index = String(index);
+        path.title = file.path;
+        path.textContent = file.path;
+        const size = document.createElement('small');
+        size.textContent = formatSize(file.sizeBytes);
+        item.append(path, size);
+        list.append(item);
+      });
+      openModal('filesModal');
+    };
+    const renderSnapshots = () => {
+      const list = $('snapshotList');
+      const existingGroups = [...list.querySelectorAll('.snapshot-folder-group')];
+      if (existingGroups.length) {
+        snapshotOpenFolders = new Set(existingGroups.filter(group => group.open).map(group => group.dataset.folder));
+      }
+      const baselineId = $('snapA').value;
+      const currentId = $('snapB').value;
+      const drive = $('snapshotDriveFilter').value || 'all';
+      const filteredSnapshots = snapshots.filter(item => drive === 'all' || snapshotDrive(item.rootPath) === drive);
+      const categoryNames = [...new Set([...snapshotFolders, ...filteredSnapshots.map(item => item.category).filter(category => category && category !== '未分类')])].sort((a, b) => a.localeCompare(b));
+      const categories = drive === 'all' ? categoryNames : categoryNames.filter(category => filteredSnapshots.some(item => (item.category || '未分类') === category));
+      const groups = [{ id: '未分类', label: t().rootFolder }, ...categories.map(category => ({ id: category, label: category }))];
+      list.replaceChildren();
+      if (!snapshots.length && !categories.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-list';
+        empty.textContent = t().noSnapshots;
+        list.append(empty);
+        return;
+      }
+      if (snapshots.length && !filteredSnapshots.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-list';
+        empty.textContent = t().noDriveSnapshots;
+        list.append(empty);
+        return;
+      }
+      groups.forEach((group, index) => {
+        const items = filteredSnapshots.filter(snapshot => (snapshot.category || '未分类') === group.id).sort((a, b) => $('snapshotSort').value === 'oldest' ? Date.parse(a.createdAt) - Date.parse(b.createdAt) : Date.parse(b.createdAt) - Date.parse(a.createdAt));
+        const section = document.createElement('details');
+        section.className = 'snapshot-folder-group';
+        section.dataset.folder = group.id;
+        section.open = snapshotOpenFolders.has(group.id);
+        section.addEventListener('toggle', () => {
+          if (section.open) snapshotOpenFolders.add(group.id);
+          else snapshotOpenFolders.delete(group.id);
+        });
+        const summary = document.createElement('summary');
+        const icon = document.createElement('span');
+        icon.className = 'snapshot-folder-icon';
+        const label = document.createElement('span');
+        label.className = 'snapshot-folder-title';
+        label.textContent = group.label;
+        const count = document.createElement('span');
+        count.className = 'snapshot-folder-count';
+        count.textContent = `${items.length} ${t().countSnapshots}`;
+        summary.append(icon, label, count);
+        if (group.id !== '未分类') {
+          const deleteFolder = document.createElement('button');
+          deleteFolder.type = 'button';
+          deleteFolder.className = 'snapshot-folder-delete';
+          deleteFolder.dataset.action = 'delete-folder';
+          deleteFolder.dataset.folder = group.id;
+          deleteFolder.title = t().folderDelete;
+          deleteFolder.setAttribute('aria-label', t().folderDelete);
+          deleteFolder.textContent = '×';
+          summary.append(deleteFolder);
+        }
+        const contents = document.createElement('div');
+        contents.className = 'snapshot-folder-items';
+        if (!items.length) {
+          const empty = document.createElement('div');
+          empty.className = 'snapshot-folder-empty';
+          empty.textContent = t().emptyFolder;
+          contents.append(empty);
+        }
+        items.forEach(snapshot => {
+          const item = document.createElement('article');
+          const isBaseline = snapshot.id === baselineId;
+          const isCurrent = snapshot.id === currentId;
+          item.className = `snapshot-item${isBaseline || isCurrent ? ' is-selected' : ''}${isBaseline ? ' selected-baseline' : ''}${isCurrent ? ' selected-current' : ''}`;
+          const meta = document.createElement('div');
+          const heading = document.createElement('div');
+          heading.className = 'snapshot-heading';
+          const name = document.createElement('strong');
+          name.textContent = snapshot.name;
+          const age = document.createElement('span');
+          age.className = 'snapshot-age';
+          age.textContent = relativeAge(snapshot.createdAt);
+          heading.append(name, age);
+          if (isBaseline) {
+            const selected = document.createElement('span');
+            selected.className = 'snapshot-selection';
+            selected.textContent = `A ${t().before}`;
+            heading.append(selected);
+          }
+          if (isCurrent) {
+            const selected = document.createElement('span');
+            selected.className = 'snapshot-selection current';
+            selected.textContent = `B ${t().after}`;
+            heading.append(selected);
+          }
+          const root = document.createElement('span');
+          root.className = 'snapshot-root-path';
+          root.title = cleanPath(snapshot.rootPath);
+          root.textContent = `${t().root}  ${cleanPath(snapshot.rootPath)}`;
+          const facts = document.createElement('div');
+          facts.className = 'snapshot-facts';
+          const date = document.createElement('span');
+          date.textContent = new Date(snapshot.createdAt).toLocaleString(currentLocale === 'en' ? 'en-US' : 'zh-CN');
+          const size = document.createElement('span');
+          size.textContent = formatSize(snapshot.sizeBytes);
+          facts.append(date, size);
+          meta.append(heading, root, facts);
+          const actions = document.createElement('div');
+          actions.className = 'item-actions';
+          const folderSelect = document.createElement('select');
+          folderSelect.className = 'select snapshot-folder-select';
+          folderSelect.title = t().folderLabel;
+          folderSelect.dataset.action = 'folder';
+          folderSelect.dataset.id = snapshot.id;
+          folderSelect.add(new Option(t().rootFolder, '未分类'));
+          categories.forEach(category => folderSelect.add(new Option(category, category)));
+          folderSelect.value = snapshot.category || '未分类';
+          decorateSelect(folderSelect, { className: 'snapshot-folder-ui' });
+          actions.append(folderSelect.parentElement);
+          [['old', t().chooseOld], ['new', t().chooseNew], ['rename', t().rename], ['delete', t().remove]].forEach(([action, text]) => {
+            const button = document.createElement('button');
+            const selected = (action === 'old' && isBaseline) || (action === 'new' && isCurrent);
+            button.className = `item-action${selected ? ' active' : ''}`;
+            button.type = 'button';
+            button.dataset.action = action;
+            button.dataset.id = snapshot.id;
+            button.textContent = selected ? `✓ ${text}` : text;
+            actions.append(button);
+          });
+          item.append(meta, actions);
+          contents.append(item);
+        });
+        section.append(summary, contents);
+        list.append(section);
+      });
+    };
+    const withError = async callback => { try { await callback(); } catch (error) { toast(message(error)); } };
+
+    $('newScan').onclick = () => withError(runScan);
+    $('windowMinimize').onclick = () => withError(() => invoke('minimize_window'));
+    $('windowMaximize').onclick = () => withError(async () => {
+      const maximized = await invoke('toggle_maximize_window');
+      $('windowMaximize').dataset.maximized = String(maximized);
+      const label = currentLocale === 'en' ? (maximized ? 'Restore' : 'Maximize') : (maximized ? '还原' : '最大化');
+      $('windowMaximize').title = label;
+      $('windowMaximize').setAttribute('aria-label', label);
+    });
+    $('windowClose').onclick = () => withError(() => invoke('close_window'));
+    $('windowControls').addEventListener('mousedown', event => {
+      if (event.button !== 0 || event.target.closest('button, input, select, textarea, label, .select-ui')) return;
+      withError(() => invoke('start_window_drag'));
+    });
+
+    /* 左上角 Brand-Mark 点击与键盘打开主题风格弹窗 */
+    $('brandMarkBtn').onclick = () => {
+      refreshStyleModalUI();
+      openModal('styleModal');
+    };
+    $('brandMarkBtn').onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        $('brandMarkBtn').click();
+      }
+    };
+    $('styleGrid').onclick = event => {
+      const card = event.target.closest('[data-style-choice]');
+      if (!card) return;
+      applyStylePreset(card.dataset.styleChoice, true);
+    };
+    $('styleModePills').onclick = event => {
+      const pill = event.target.closest('[data-theme-pill]');
+      if (!pill) return;
+      const mode = pill.dataset.themePill;
+      applyTheme(mode);
+      refreshStyleModalUI();
+      toast(mode === 'system' ? t().themeSystem : mode === 'dark' ? t().themeDark : t().themeLight);
+    };
+
+    $('snapshotNew').onclick = () => { closeModal('snapshotModal'); runScan(); };
+    $('snapshotsBtn').onclick = () => withError(() => {
+      openModal('snapshotModal');
+      renderSnapshots();
+    });
+    $('createSnapshotFolder').onclick = () => withError(async () => {
+      const name = await askText({ title: t().createFolder, label: t().folderPrompt });
+      if (!name) return;
+      snapshotFolders = await invoke('create_snapshot_folder', { name });
+      renderSnapshots();
+      toast(currentLocale === 'en' ? 'Folder created' : '文件夹已创建');
+    });
+    const loadLog = async () => { $('logOutput').value = cleanPath(await invoke('get_app_log')); $('logOutput').scrollTop = $('logOutput').scrollHeight; };
+    $('settingsBtn').onclick = () => { openModal('settingsModal'); withError(loadLog); };
+    $('refreshLogBtn').onclick = () => withError(loadLog);
+    $('clearLogBtn').onclick = () => withError(async () => {
+      if (!confirm(currentLocale === 'en' ? 'Clear the local log?' : '确定清空本地日志？')) return;
+      await invoke('clear_app_log');
+      await loadLog();
+    });
+    $('compareBtn').onclick = () => withError(compareSelected);
+    $('clearCompareBtn').onclick = () => {
+      $('snapA').value = '';
+      $('snapB').value = '';
+      refreshSelectUI($('snapA'));
+      refreshSelectUI($('snapB'));
+      comparison = null;
+      expanded.clear();
+      showEmpty();
+      renderSnapshots();
+    };
+    $('snapA').onchange = () => { comparison = null; showEmpty(); };
+    $('snapB').onchange = () => { comparison = null; showEmpty(); };
+    $('snapshotList').onchange = event => {
+      const select = event.target.closest('select[data-action="folder"]');
+      if (!select) return;
+      withError(async () => {
+        await invoke('move_snapshot', { id: select.dataset.id, category: select.value });
+        await loadSnapshots();
+        toast(currentLocale === 'en' ? 'Snapshot folder updated' : '快照文件夹已更新');
+      });
+    };
+    document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => closeModal(button.dataset.close));
+    $('textPromptConfirm').onclick = () => {
+      const value = $('textPromptInput').value.trim();
+      if (value) finishTextPrompt(value);
+    };
+    $('textPromptCancel').onclick = () => finishTextPrompt(null);
+    $('textPromptClose').onclick = () => finishTextPrompt(null);
+    $('textPromptInput').onkeydown = event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        $('textPromptConfirm').click();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        finishTextPrompt(null);
+      }
+    };
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.onclick = event => {
+      if (event.target !== backdrop) return;
+      if (backdrop.id === 'textPromptModal') finishTextPrompt(null);
+      else closeModal(backdrop.id);
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      if (!$('textPromptModal').classList.contains('hidden')) {
+        finishTextPrompt(null);
+        return;
+      }
+      document.querySelectorAll('.modal-backdrop:not(.hidden)').forEach(modal => closeModal(modal.id));
+    });
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = (mode, persist = true) => {
+      if (!['light', 'dark', 'system'].includes(mode)) mode = 'light';
+      if (persist) localStorage.setItem('tracedisk-theme', mode);
+      $('themeSelect').value = mode;
+      document.documentElement.dataset.theme = mode === 'system' ? (systemTheme.matches ? 'dark' : 'light') : mode;
+      refreshSelectUI($('themeSelect'));
+      refreshStyleModalUI();
+    };
+    $('themeSelect').onchange = () => {
+      const mode = $('themeSelect').value;
+      applyTheme(mode);
+      toast(mode === 'system' ? t().themeSystem : mode === 'dark' ? t().themeDark : t().themeLight);
+    };
+    systemTheme.addEventListener?.('change', event => {
+      if (localStorage.getItem('tracedisk-theme') === 'system') document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
+    });
+    $('localeToggle').onclick = () => { currentLocale = currentLocale === 'zh' ? 'en' : 'zh'; applyLocale(); };
+    $('changePathBtn').onclick = () => withError(async () => {
+      const path = await invoke('select_directory');
+      if (!path) return;
+      const saved = await invoke('set_snapshot_directory', { path });
+      $('settingPathDesc').textContent = cleanPath(saved);
+      comparison = null;
+      singleSnapshot = false;
+      directoryTreeCache = null;
+      $('snapA').value = '';
+      $('snapB').value = '';
+      await loadSnapshots();
+      showEmpty();
+      toast(currentLocale === 'en' ? 'Snapshot location updated' : '快照保存位置已更新');
+    });
+    $('defaultPathBtn').onclick = () => withError(async () => {
+      const path = await invoke('reset_snapshot_directory');
+      $('settingPathDesc').textContent = cleanPath(path);
+      comparison = null;
+      singleSnapshot = false;
+      directoryTreeCache = null;
+      $('snapA').value = '';
+      $('snapB').value = '';
+      await loadSnapshots();
+      showEmpty();
+      toast(currentLocale === 'en' ? 'Snapshot location reset to default' : '已恢复默认快照保存位置');
+    });
+    $('searchBtn').onclick = () => {
+      $('directorySearch').classList.toggle('open');
+      $('searchBtn').classList.toggle('active', $('directorySearch').classList.contains('open'));
+      if ($('directorySearch').classList.contains('open')) $('directorySearch').focus();
+      else { $('directorySearch').value = ''; if (comparison) renderTree(); }
+    };
+    $('directorySearch').oninput = () => comparison && renderTree();
+    $('filterSelect').onchange = () => comparison && renderTree();
+    $('sortSelect').onchange = () => comparison && renderTree();
+    $('snapshotSort').onchange = renderSnapshots;
+    $('snapshotDriveFilter').onchange = renderSnapshots;
+    $('treeScroll').onclick = event => {
+      const action = event.target.closest('[data-action]');
+      const row = event.target.closest('.row');
+      if (action?.dataset.action === 'files') return showFiles(action.dataset.relative, action.dataset.status);
+      if (event.target.classList.contains('toggle') && row) {
+        const relative = row.dataset.relative;
+        expanded.has(relative) ? expanded.delete(relative) : expanded.add(relative);
+        return renderTree();
+      }
+      if (row) {
+        $('treeScroll').querySelectorAll('.row').forEach(item => item.classList.remove('selected'));
+        row.classList.add('selected');
+      }
+    };
+    $('treeScroll').ondblclick = event => {
+      const row = event.target.closest('.row');
+      if (!row) return;
+      if (row.dataset.type === 'folder') {
+        const relative = row.dataset.relative;
+        expanded.has(relative) ? expanded.delete(relative) : expanded.add(relative);
+        renderTree();
+      } else {
+        withError(() => invoke('open_in_explorer', { path: row.dataset.path, isDirectory: false }));
+      }
+    };
+    $('treeScroll').oncontextmenu = event => {
+      const row = event.target.closest('.row');
+      if (!row) return;
+      event.preventDefault();
+      contextTarget = row;
+      const menu = $('contextMenu');
+      const isFolder = row.dataset.type === 'folder';
+      $('contextExpand').disabled = !isFolder;
+      $('contextExpand').textContent = isFolder && expanded.has(row.dataset.relative) ? t().collapse : t().expand;
+      menu.classList.remove('hidden');
+      menu.style.left = `${Math.min(event.clientX, window.innerWidth - 176)}px`;
+       menu.style.top = `${Math.min(event.clientY, window.innerHeight - 120)}px`;
+    };
+    $('treeScroll').onkeydown = event => {
+      const row = event.target.closest('.row');
+      if (row && (event.key === 'Enter' || event.key === ' ')) row.click();
+    };
+    $('rootPath').onclick = () => comparison && withError(() => invoke('open_in_explorer', { path: cleanPath(comparison.newSnapshot.rootPath), isDirectory: true }));
+    $('contextExpand').onclick = () => {
+      if (!contextTarget || contextTarget.dataset.type !== 'folder') return;
+      const relative = contextTarget.dataset.relative;
+      expanded.has(relative) ? expanded.delete(relative) : expanded.add(relative);
+      $('contextMenu').classList.add('hidden');
+      renderTree();
+    };
+    $('contextExplorer').onclick = () => {
+      if (!contextTarget) return;
+      const path = contextTarget.dataset.path;
+      $('contextMenu').classList.add('hidden');
+      withError(() => invoke('open_in_explorer', { path, isDirectory: contextTarget.dataset.type === 'folder' }));
+    };
+    const copyPath = async path => {
+      const value = cleanPath(path);
+      try {
+        await navigator.clipboard.writeText(value);
+      } catch {
+        const input = document.createElement('textarea');
+        input.value = value;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.append(input);
+        input.select();
+        document.execCommand('copy');
+        input.remove();
+      }
+      toast(currentLocale === 'en' ? 'Path copied' : '路径已复制');
+    };
+    $('contextCopyPath').onclick = () => {
+      if (!contextTarget) return;
+      const path = contextTarget.dataset.path;
+      $('contextMenu').classList.add('hidden');
+      withError(() => copyPath(path));
+    };
+    document.addEventListener('click', event => {
+      if (!event.target.closest('#contextMenu')) $('contextMenu').classList.add('hidden');
+      if (!event.target.closest('.select-ui')) closeSelectUIs();
+    });
+    $('addedTotal').onclick = () => comparison && showFiles('', 'added');
+    $('removedTotal').onclick = () => comparison && showFiles('', 'removed');
+    $('snapshotList').onclick = event => withError(async () => {
+      const action = event.target.closest('[data-action]');
+      if (!action) return;
+      if (action.dataset.action === 'delete-folder') {
+        event.preventDefault();
+        event.stopPropagation();
+        const folder = action.dataset.folder;
+        if (!folder || !confirm(t().confirmFolderDelete.replace('{name}', folder))) return;
+        await invoke('delete_snapshot_folder', { name: folder });
+        await loadSnapshots();
+        toast(currentLocale === 'en' ? 'Folder deleted' : '文件夹已删除');
+        return;
+      }
+      const snapshot = snapshotById(action.dataset.id);
+      if (!snapshot) return;
+      if (action.dataset.action === 'old' || action.dataset.action === 'new') {
+        const select = $('snap' + (action.dataset.action === 'old' ? 'A' : 'B'));
+        select.value = select.value === snapshot.id ? '' : snapshot.id;
+        refreshSelectUI(select);
+        comparison = null;
+        showEmpty();
+        renderSnapshots();
+      } else if (action.dataset.action === 'rename') {
+        const name = await askText({ title: t().rename, label: t().namePrompt, value: snapshot.name });
+        if (name) await invoke('rename_snapshot', { id: snapshot.id, name });
+        await loadSnapshots();
+      } else if (action.dataset.action === 'delete') {
+        if (!confirm(t().confirmDelete.replace('{name}', snapshot.name))) return;
+        await invoke('delete_snapshot', { id: snapshot.id });
+        comparison = null;
+        await loadSnapshots();
+        showEmpty();
+      }
+    });
+    $('fileList').onclick = event => withError(async () => {
+      const action = event.target.closest('[data-action="open-file"]');
+      if (!action) return;
+      const file = activeFiles[Number(action.dataset.index)];
+      const base = file.status === 'removed' ? comparison.oldSnapshot.rootPath : comparison.newSnapshot.rootPath;
+      let path = joinWindowsPath(base, file.path);
+      if (file.status === 'removed') {
+        toast(t().fileMissing);
+        path = path.slice(0, Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/')));
+      }
+      await invoke('open_in_explorer', { path: cleanPath(path), isDirectory: false });
+    });
+    decorateSelect($('snapA'));
+    decorateSelect($('snapB'));
+    decorateSelect($('themeSelect'), { className: 'theme-ui' });
+    decorateSelect($('snapshotSort'));
+    decorateSelect($('snapshotDriveFilter'));
+    decorateSelect($('sortSelect'), { compact: true });
+    decorateSelect($('filterSelect'), { compact: true });
+    $('sortSelect').closest('label').title = t().sort;
+    applyStylePreset(localStorage.getItem('tracedisk-style') || 'default', false);
+    applyTheme(localStorage.getItem('tracedisk-theme') || 'light', false);
+    $('snapA').value = '';
+    $('snapB').value = '';
+    applyLocale();
+    withError(async () => {
+      await invoke('get_app_version').then(version => $('settingVersionValue').textContent = `v${version}`);
+      await invoke('get_snapshot_directory').then(path => $('settingPathDesc').textContent = cleanPath(path));
+      await loadSnapshots();
+    });
+  </script>
+</body>
+</html>

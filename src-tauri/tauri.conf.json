@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TraceDisk 磁迹",
+  "version": "0.1.0",
+  "identifier": "com.tracedisk.app",
+  "build": {
+    "beforeDevCommand": "npm run ui:build",
+    "beforeBuildCommand": "npm run ui:build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "TraceDisk · 磁迹",
+        "width": 1100,
+        "height": 740,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "maximizable": true,
+        "decorations": false,
+        "backgroundColor": "#e9eef0"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "Local disk snapshots and file comparison",
+    "category": "Utility",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    }
+  }
+}
